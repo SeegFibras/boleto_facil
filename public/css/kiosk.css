@@ -1,0 +1,31 @@
+/* Estilos para modo quiosque */
+body.kiosk-mode {
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  overflow: hidden;
+}
+
+body.kiosk-mode *::selection {
+  background: transparent;
+}
+
+body.kiosk-mode ::-webkit-scrollbar {
+  width: 10px;
+}
+
+body.kiosk-mode ::-webkit-scrollbar-track {
+  background: var(--azul-escuro);
+}
+
+body.kiosk-mode ::-webkit-scrollbar-thumb {
+  background: var(--azul-btn);
+  border-radius: 3px;
+}
+
+body.kiosk-mode .main-content {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: calc(100vh - 140px);
+}

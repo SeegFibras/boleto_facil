@@ -1,0 +1,37 @@
+/* Estilos otimizados para impressão */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .header, .footer, .keyboard, .btn-buscar, .btn-nova-consulta,
+  .btn-imprimir, .btn-imprimir-todos, .search-area, .greeting,
+  .subtitle, .status-indicator, .clock, .inactivity-bar, .toast {
+    display: none !important;
+  }
+
+  .results-section {
+    display: block !important;
+  }
+
+  .client-info {
+    border: 1px solid #333;
+    background: white !important;
+    color: black !important;
+  }
+
+  .client-name {
+    color: black !important;
+  }
+
+  .boleto-card {
+    border: 1px solid #333;
+    background: white !important;
+    page-break-inside: avoid;
+  }
+
+  .boleto-valor {
+    color: black !important;
+  }
+}

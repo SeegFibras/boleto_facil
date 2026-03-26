@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sistema de consulta e impressão de boletos SEEG FIBRAS">
+  <meta name="theme-color" content="#0e4b98">
+  <title>SEEG FIBRAS - Boletos</title>
+  <link rel="icon" type="image/png" href="/assets/logo_grupo_seeg.png">
+  <link rel="apple-touch-icon" href="/assets/logo_grupo_seeg.png">
+  <link rel="shortcut icon" href="/assets/logo_grupo_seeg.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/print.css" media="print">
+  <link rel="stylesheet" href="/css/kiosk.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <img src="/assets/logo_grupo_seeg.png" alt="Grupo Seeg" class="logo">
+    </div>
+    <div class="header-right">
+      <div class="status-indicator" id="statusIndicator" title="Status do servidor">
+        <span class="status-dot"></span>
+        <span class="status-text">Conectado</span>
+      </div>
+      <div class="clock" id="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- Conteúdo principal -->
+  <main class="main-content">
+    <!-- Saudação -->
+    <h1 class="greeting" id="greeting">Bom dia!</h1>
+    <p class="subtitle">Digite seu CPF ou CNPJ para consultar seus boletos</p>
+
+    <!-- Área de busca -->
+    <div class="search-area">
+      <div class="input-section">
+        <div class="input-wrapper">
+          <input type="text" id="documentoInput" class="documento-input"
+                 placeholder="000.000.000-00" autocomplete="off">
+        </div>
+        <button type="button" class="btn-buscar" id="btnBuscar">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          Buscar Cobranças
+        </button>
+      </div>
+
+      <!-- Teclado numérico -->
+      <div class="keyboard" id="keyboard"></div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-overlay" id="loading" style="display:none">
+      <div class="spinner"></div>
+      <p>Consultando...</p>
+    </div>
+
+    <!-- Resultados -->
+    <div class="results-section" id="results" style="display:none">
+      <div class="client-info" id="clientInfo"></div>
+      <div class="boletos-list" id="boletosList"></div>
+      <button type="button" class="btn-nova-consulta" id="btnNovaConsulta">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+        Nova Consulta
+      </button>
+    </div>
+
+    <!-- Mensagem de erro -->
+    <div class="error-message" id="errorMessage" style="display:none"></div>
+
+    <!-- Mensagem em dia -->
+    <div class="success-message" id="successMessage" style="display:none">
+      <div class="success-icon">✓</div>
+      <h2>Nenhuma fatura em aberto</h2>
+      <p>Você está em dia!</p>
+      <button type="button" class="btn-nova-consulta" id="btnNovaConsulta2">Nova Consulta</button>
+    </div>
+  </main>
+
+  <!-- Barra de inatividade -->
+  <div class="inactivity-bar" id="inactivityBar" style="display:none">
+    <div class="inactivity-progress" id="inactivityProgress"></div>
+  </div>
+
+  <!-- Rodapé -->
+  <footer class="footer">
+    <span id="footerText">SEEG FIBRAS TELECOMUNICAÇÕES LTDA - CNPJ: 25.452.912/0001-25</span>
+  </footer>
+
+  <!-- Iframe oculto para impressão -->
+  <iframe id="printFrame" style="display:none"></iframe>
+
+  <!-- Toast de confirmação -->
+  <div class="toast" id="toast" style="display:none"></div>
+
+  <script src="/js/keyboard.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/printer.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
