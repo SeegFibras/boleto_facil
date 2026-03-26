@@ -3,11 +3,11 @@ title SEEG FIBRAS - Sistema de Boletos
 
 :: ============================================================
 :: URL do sistema — alterar para a VPS quando em produção:
-::   set URL_SISTEMA=https://boleto.seegfibras.com.br
+::   set URL_SISTEMA=https://SEU-DOMINIO.EXEMPLO
 :: Para uso local (totem rodando o Node.js localmente):
 ::   set URL_SISTEMA=http://localhost:3000
 :: ============================================================
-set URL_SISTEMA=https://boleto.seegfibras.com.br
+set URL_SISTEMA=https://SEU-DOMINIO.EXEMPLO
 
 echo ============================================
 echo   SEEG FIBRAS - Iniciando Sistema de Boletos

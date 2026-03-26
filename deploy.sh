@@ -11,17 +11,32 @@
 
 set -e  # Interrompe em qualquer erro
 
-DOMINIO="boleto.seegfibras.com.br"
+DOMINIO="SEU-DOMINIO.EXEMPLO"
 APP_DIR="/opt/boleto-seeg"
 APP_USER="seeg"
-IP_PERMITIDO="45.233.136.8"
-EMAIL_CERTBOT="ti@seegfibras.com.br"
+IP_PERMITIDO="SEU.IP.PUBLICO.AQUI"
+EMAIL_CERTBOT="seu-email@dominio.com"
 
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
 echo "║   SEEG FIBRAS — Deploy Servidor de Boletos       ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
+
+echo "Configuração inicial (pressione ENTER para manter o valor entre colchetes):"
+read -p "Domínio da aplicação [$DOMINIO]: " input_dominio
+read -p "IP permitido no Nginx (allow) [$IP_PERMITIDO]: " input_ip
+read -p "E-mail para Certbot [$EMAIL_CERTBOT]: " input_email
+
+if [ -n "$input_dominio" ]; then DOMINIO="$input_dominio"; fi
+if [ -n "$input_ip" ]; then IP_PERMITIDO="$input_ip"; fi
+if [ -n "$input_email" ]; then EMAIL_CERTBOT="$input_email"; fi
+
+if [ "$DOMINIO" = "SEU-DOMINIO.EXEMPLO" ] || [ "$IP_PERMITIDO" = "SEU.IP.PUBLICO.AQUI" ] || [ "$EMAIL_CERTBOT" = "seu-email@dominio.com" ]; then
+    echo ""
+    echo "ERRO: preencha domínio, IP permitido e e-mail válidos antes de continuar."
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # FASE 1 — Pacotes base

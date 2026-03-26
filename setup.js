@@ -28,8 +28,8 @@ async function main() {
 
   // Valores padrão
   const defaults = {
-    url: 'https://ixc.seegfibras.com.br',
-    userId: '66',
+    url: 'https://SEU-IXC-DOMINIO.EXEMPLO',
+    userId: '',
     token: '',
     port: '3000',
     telefone: ''
@@ -37,7 +37,14 @@ async function main() {
 
   // Coleta de dados
   const url = (await pergunta(`URL do IXC Provedor [${defaults.url}]: `)).trim() || defaults.url;
-  const userId = (await pergunta(`ID do usuário API [${defaults.userId}]: `)).trim() || defaults.userId;
+  const userId = (await pergunta(`ID do usuário API [${defaults.userId || 'obrigatorio'}]: `)).trim() || defaults.userId;
+
+  if (!userId) {
+    console.log('');
+    console.log('❌ O ID do usuário API é obrigatório. Execute o setup novamente e informe o ID.');
+    rl.close();
+    process.exit(1);
+  }
 
   if (defaults.token) {
     console.log(`Token da API [${mascararToken(defaults.token)}]: (Enter para manter)`);
