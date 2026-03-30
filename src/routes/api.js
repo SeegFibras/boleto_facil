@@ -20,7 +20,7 @@ router.post('/consultar', apiLimiter, sanitizeCpfCnpj, async (req, res) => {
     return res.status(400).json({ erro: 'CPF ou CNPJ inválido. Verifique os números digitados.' });
   }
 
-  const ip = req.ip || req.connection.remoteAddress;
+  const ip = req.ip || req.socket.remoteAddress;
   const docMascarado = mascarar(documento);
 
   try {

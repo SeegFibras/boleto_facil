@@ -8,6 +8,14 @@ const logger = require('./src/utils/logger');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Validação de variáveis de ambiente obrigatórias
+const requiredEnvVars = ['MASTER_KEY'];
+const missing = requiredEnvVars.filter(v => !process.env[v]);
+if (missing.length > 0) {
+  logger.error(`Variáveis de ambiente obrigatórias não definidas: ${missing.join(', ')}. Execute: npm run setup`);
+  process.exit(1);
+}
+
 // Necessário para rate limiting e logs de IP corretos quando rodando atrás do Nginx
 app.set('trust proxy', 1);
 
@@ -24,6 +32,15 @@ app.use(helmet({
     }
   }
 }));
+
+// Rejeita requisições cross-origin na API
+app.use('/api', (req, res, next) => {
+  const origin = req.get('Origin');
+  if (origin) {
+    return res.status(403).json({ erro: 'Requisições cross-origin não permitidas.' });
+  }
+  next();
+});
 
 // Parser JSON
 app.use(express.json());

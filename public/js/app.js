@@ -398,13 +398,14 @@ const app = {
 
   // Utilitários
   parseDate(dateStr) {
+    if (!dateStr) return new Date(NaN);
     // Aceita YYYY-MM-DD ou DD/MM/YYYY
     if (dateStr.includes('-')) {
       const [y, m, d] = dateStr.split('-');
-      return new Date(y, m - 1, d);
+      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
     }
     const [d, m, y] = dateStr.split('/');
-    return new Date(y, m - 1, d);
+    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
   },
 
   formatDate(dateStr) {
