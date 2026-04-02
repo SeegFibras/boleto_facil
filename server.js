@@ -8,6 +8,37 @@ const logger = require('./src/utils/logger');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+function normalizeOrigin(value) {
+  if (!value) return null;
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function getAllowedOrigins(req) {
+  const allowedOrigins = new Set();
+  const configuredOrigin = normalizeOrigin(process.env.PUBLIC_ORIGIN);
+
+  if (configuredOrigin) {
+    allowedOrigins.add(configuredOrigin);
+  }
+
+  const forwardedHost = req.get('X-Forwarded-Host');
+  const requestHost = forwardedHost || req.get('host');
+  const forwardedProto = req.get('X-Forwarded-Proto');
+  const requestProtocol = (forwardedProto || req.protocol || 'http').split(',')[0].trim();
+  const requestOrigin = normalizeOrigin(`${requestProtocol}://${requestHost}`);
+
+  if (requestOrigin) {
+    allowedOrigins.add(requestOrigin);
+  }
+
+  return allowedOrigins;
+}
+
 // Validação de variáveis de ambiente obrigatórias
 const requiredEnvVars = ['MASTER_KEY'];
 const missing = requiredEnvVars.filter(v => !process.env[v]);
@@ -33,12 +64,19 @@ app.use(helmet({
   }
 }));
 
-// Rejeita requisições cross-origin na API
+// Rejeita apenas origens divergentes da origem publicada ou do host atual
 app.use('/api', (req, res, next) => {
-  const origin = req.get('Origin');
-  if (origin) {
-    return res.status(403).json({ erro: 'Requisições cross-origin não permitidas.' });
+  const origin = normalizeOrigin(req.get('Origin'));
+
+  if (!origin) {
+    return next();
   }
+
+  const allowedOrigins = getAllowedOrigins(req);
+  if (!allowedOrigins.has(origin)) {
+    return res.status(403).json({ erro: 'Origem não autorizada para esta API.' });
+  }
+
   next();
 });
 

@@ -8,7 +8,8 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 3000,
-        HOST: "127.0.0.1" // Rodando atrás do Nginx (segurança)
+        HOST: "127.0.0.1", // Rodando atrás do Nginx (segurança)
+        PUBLIC_ORIGIN: "https://boleto.seegfibras.com.br"
       },
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     }

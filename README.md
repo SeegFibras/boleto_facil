@@ -42,19 +42,30 @@ O script instala Node.js 18, PM2, UFW, Nginx e configura a base do servidor.
 ### 2. Configurar Nginx e dominio
 
 - Arquivo de Nginx: [nginx/boleto-seeg.conf](nginx/boleto-seeg.conf)
-- Dominio: substitua `SEU-DOMINIO.EXEMPLO` pelo seu subdominio real
-- Restricao de acesso por IP: substitua `SEU.IP.PUBLICO.AQUI` pelo IP permitido
+- Dominio publicado: `https://boleto.seegfibras.com.br`
+- Restricao de acesso por IP: permitir apenas `45.178.112.50` no bloco HTTPS, desde que esse seja o IP publico real da recepcao
+- Se o Certbot alterou o arquivo ativo em `/etc/nginx/sites-available`, aplique a mesma regra nele antes de recarregar o Nginx
 
 ### 3. Gerar certificado HTTPS
 
 Depois de apontar o DNS do dominio para o IP da VPS:
 
 ```bash
-sudo certbot --nginx -d seu-subdominio.seudominio.com
+sudo certbot --nginx -d boleto.seegfibras.com.br
 ```
 
 Importante: durante a emissão inicial do certificado, a porta 80 deve estar acessível para validação do Let's Encrypt.
 Depois da emissão, mantenha a restrição de IP ativa no bloco HTTPS (porta 443).
+
+### 3.1 Origem permitida da API
+
+Defina a origem pública do sistema no ambiente de produção:
+
+```bash
+PUBLIC_ORIGIN=https://boleto.seegfibras.com.br
+```
+
+O backend aceita requisições sem header `Origin` e também a origem configurada acima. Isso evita o bloqueio indevido de POSTs same-origin feitos pelo próprio navegador.
 
 ### 4. Subir aplicacao com PM2
 
@@ -65,11 +76,17 @@ pm2 start ecosystem.config.js
 pm2 save
 ```
 
+Se a aplicação já estiver rodando no PM2, recarregue o processo com o novo ambiente:
+
+```bash
+pm2 restart boletos-seeg-fibras --update-env
+```
+
 ## Modo Quiosque (Totem)
 
 Execute o arquivo `start-kiosk.bat` para:
 1. Abrir o Chrome em modo tela cheia (kiosk)
-2. Acessar o sistema remoto em `https://SEU-DOMINIO.EXEMPLO`
+2. Acessar o sistema remoto em `https://boleto.seegfibras.com.br`
 
 ### Inicialização automática no Windows
 
@@ -103,3 +120,4 @@ npm run setup
 - Restricao de acesso por IP no Nginx (valor configurável)
 - CPF/CNPJ mascarado nos logs
 - Headers de seguranca (Helmet.js)
+- Validacao de origem da API com allowlist explicita (`PUBLIC_ORIGIN`)

@@ -32,7 +32,8 @@ async function main() {
     userId: '',
     token: '',
     port: '3000',
-    telefone: ''
+    telefone: '',
+    publicOrigin: 'https://boleto.seegfibras.com.br'
   };
 
   // Coleta de dados
@@ -64,6 +65,7 @@ async function main() {
 
   const port = (await pergunta(`Porta do servidor [${defaults.port}]: `)).trim() || defaults.port;
   const telefone = (await pergunta('Telefone de atendimento []: ')).trim() || defaults.telefone;
+  const publicOrigin = (await pergunta(`Origem pública permitida [${defaults.publicOrigin}]: `)).trim() || defaults.publicOrigin;
 
   console.log('');
   console.log('⏳ Testando conexão com a API...');
@@ -146,6 +148,7 @@ async function main() {
 MASTER_KEY=${masterKey}
 PORT=${port}
 TELEFONE_ATENDIMENTO=${telefone}
+PUBLIC_ORIGIN=${publicOrigin}
 `;
 
   fs.writeFileSync(path.join(__dirname, '.env'), envContent);
