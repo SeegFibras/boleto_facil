@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { buscarCliente, buscarContratos, buscarBoletos, obterPdfBoleto, obterDadosBoleto, obterPix } = require('../services/ixcApi');
 const { gerarHtmlTermica } = require('../templates/termicaBoleto');
+const { gerarPdfBoleto } = require('../services/pdfGenerator');
 const { validar, mascarar } = require('../utils/cpfCnpj');
 const { registrarConsulta } = require('../config/database');
 const { apiLimiter } = require('../middleware/rateLimit');
@@ -122,6 +123,39 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
     res.send(html);
   } catch (error) {
     logger.error(`Erro na rota térmica do boleto ${id}: ${error.message}`);
+    res.status(500).json({ erro: 'Erro ao gerar boleto térmico.' });
+  }
+});
+
+// Gera PDF do boleto com tamanho customizado para impressora térmica (via Puppeteer)
+router.get('/boleto/:id/termica-pdf', apiLimiter, async (req, res) => {
+  const { id } = req.params;
+
+  if (!/^\d+$/.test(id)) {
+    return res.status(400).json({ erro: 'ID de boleto inválido.' });
+  }
+
+  try {
+    const [dadosResult, pixResult] = await Promise.allSettled([
+      obterDadosBoleto(id),
+      obterPix(id)
+    ]);
+
+    if (dadosResult.status === 'rejected') {
+      logger.error(`Erro ao obter dados do boleto ${id}: ${dadosResult.reason?.message}`);
+      return res.status(500).json({ erro: 'Não foi possível obter os dados do boleto.' });
+    }
+
+    const dados = dadosResult.value;
+    const pix = pixResult.status === 'fulfilled' ? pixResult.value : null;
+
+    const pdfBuffer = await gerarPdfBoleto(dados, pix);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename=boleto-${id}.pdf`);
+    res.send(Buffer.from(pdfBuffer));
+  } catch (error) {
+    logger.error(`Erro na rota térmica-pdf do boleto ${id}: ${error.message}`);
     res.status(500).json({ erro: 'Erro ao gerar boleto térmico.' });
   }
 });

@@ -1,5 +1,9 @@
-// Gerador de HTML para impressao termica 80mm
+// Gerador de HTML para boleto termico — layout horizontal (278mm x 85mm)
+// Replica o layout do sistema antigo (boleto.blade.php / DomPDF)
 // Recebe dados do get_boleto (tipo_boleto: 'dados') e dados do get_pix
+
+const { createCanvas } = require('canvas');
+const JsBarcode = require('jsbarcode');
 
 function escapeHtml(text) {
   if (!text) return '';
@@ -8,6 +12,24 @@ function escapeHtml(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// Gera codigo de barras ITF como base64 PNG
+function gerarCodigoBarras(codigoBarras) {
+  if (!codigoBarras) return '';
+  try {
+    const canvas = createCanvas(500, 50);
+    JsBarcode(canvas, codigoBarras, {
+      format: 'ITF',
+      width: 1.5,
+      height: 50,
+      displayValue: false,
+      margin: 0
+    });
+    return canvas.toDataURL('image/png');
+  } catch (e) {
+    return '';
+  }
 }
 
 function gerarHtmlTermica(dados, pix) {
@@ -23,298 +45,229 @@ function gerarHtmlTermica(dados, pix) {
   const valor = escapeHtml(dados.valor_boleto || '');
   const linhaDigitavel = escapeHtml(dados.linha_digitavel || '');
   const localPagamento = escapeHtml(dados.local_pagamento || '');
+  const codigoBanco = escapeHtml(dados.codigo_banco_com_dv || '');
+  const agenciaCodigo = escapeHtml(dados.agencia_codigo || '');
+  const cedente = escapeHtml(dados.cedente_nome || '');
+  const sacadorRazao = escapeHtml(dados.sacador_razao || '');
+  const dataDocumento = escapeHtml(dados.data_documento || '');
+  const dataProcessamento = escapeHtml(dados.data_processamento || '');
+  const especieDoc = escapeHtml(dados.especie_doc || '');
+  const especie = escapeHtml(dados.especie || '');
+  const aceite = escapeHtml(dados.aceite || '');
+  const carteira = escapeHtml(dados.carteira || '');
 
-  // Instrucoes (linhas 1-3)
-  const instrucoes = [dados.linha1, dados.linha2, dados.linha3]
+  // Instrucoes
+  const instrucoes = [dados.linha1, dados.linha2, dados.linha3, dados.Instrucao1, dados.Instrucao2]
     .filter(l => l && l.trim())
     .map(l => escapeHtml(l.trim()));
 
-  // Secao PIX (condicional)
-  let pixHtml = '';
-  if (pix && pix.qrCodeBase64) {
-    pixHtml = `
-    <div class="separator-double"></div>
-    <div class="section pix-section">
-      <div class="pix-header">PAGUE COM PIX</div>
-      <div class="qr-container">
-        <img src="${pix.qrCodeBase64}" alt="QR Code PIX" class="qr-code">
-      </div>
-      ${pix.qrCodeText ? `
-        <div class="pix-label">PIX Copia e Cola:</div>
-        <div class="pix-code break-all">${escapeHtml(pix.qrCodeText)}</div>
-      ` : ''}
-      ${pix.valor ? `<div class="pix-valor">Valor: R$ ${escapeHtml(parseFloat(pix.valor).toFixed(2).replace('.', ','))}</div>` : ''}
-    </div>`;
-  }
+  // Codigo de barras
+  const barcodeBase64 = gerarCodigoBarras(dados.codigo_barras);
+
+  // Endereco completo do pagador
+  const enderecoCompleto = [endereco, cidade ? `${cidade}${uf ? '/' + uf : ''}` : '', cep ? `CEP: ${cep}` : '']
+    .filter(Boolean).join(' - ');
+
+  // Largura da tabela e coluna PIX
+  const temPix = pix && pix.qrCodeBase64;
+  const larguraTabela = temPix ? '1050px' : '865px';
+
+  // QR Code PIX celula (rowspan na coluna direita)
+  const pixRowspan = temPix ? `
+    <td rowspan="10" style="width:200px; text-align:center; vertical-align:middle; padding:5px;">
+      <strong style="font-size:11px;">PAGUE COM PIX</strong><br>
+      <img src="${pix.qrCodeBase64}" width="180" height="180" style="margin:3px 0;"><br>
+      <span style="font-size:8px; word-break:break-all; display:block; max-width:190px; margin:0 auto;">${escapeHtml(pix.qrCodeText || '')}</span>
+    </td>` : '';
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Boleto - ${numDocumento}</title>
   <style>
-    @page {
-      margin: 0;
-      padding: 0;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      width: 80mm;
-      max-width: 80mm;
-      margin: 0 auto;
-      padding: 2mm 3mm;
-      font-family: 'Courier New', 'Lucida Console', monospace;
-      font-size: 11px;
-      line-height: 1.4;
-      color: #000;
-      background: #fff;
-    }
-
-    .header-empresa {
-      text-align: center;
-      padding: 2mm 0;
-      border-top: 2px solid #000;
-      border-bottom: 2px solid #000;
-      margin-bottom: 2mm;
-    }
-
-    .header-empresa .nome {
-      font-size: 13px;
-      font-weight: bold;
-      letter-spacing: 0.5px;
-    }
-
-    .header-empresa .cnpj {
-      font-size: 10px;
-      margin-top: 1mm;
-    }
-
-    .section {
-      margin-bottom: 1mm;
-    }
-
-    .section-title {
-      font-size: 12px;
-      font-weight: bold;
-      text-align: center;
-      margin-bottom: 1mm;
-    }
-
-    .separator {
-      border-bottom: 1px dashed #000;
-      margin: 2mm 0;
-    }
-
-    .separator-double {
-      border-bottom: 2px solid #000;
-      margin: 2mm 0;
-    }
-
-    .row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 0.5mm;
-    }
-
-    .label {
-      font-weight: bold;
-      font-size: 10px;
-    }
-
-    .value {
-      font-size: 11px;
-    }
-
-    .valor-destaque {
-      font-size: 16px;
-      font-weight: bold;
-      text-align: center;
-      margin: 1mm 0;
-    }
-
-    .instrucoes {
-      font-size: 9px;
-      line-height: 1.3;
-    }
-
-    .instrucoes li {
-      margin-bottom: 0.5mm;
-      list-style: none;
-    }
-
-    .instrucoes li::before {
-      content: "- ";
-    }
-
-    .linha-digitavel {
-      text-align: center;
-      font-size: 11px;
-      font-weight: bold;
-      letter-spacing: 0.3px;
-      padding: 1mm 0;
-      word-break: break-all;
-    }
-
-    .local-pagamento {
-      font-size: 8px;
-      text-align: center;
-      margin-top: 1mm;
-    }
-
-    .pix-section {
-      text-align: center;
-    }
-
-    .pix-header {
-      font-size: 14px;
-      font-weight: bold;
-      letter-spacing: 1px;
-      margin-bottom: 2mm;
-    }
-
-    .qr-container {
-      display: flex;
-      justify-content: center;
-      margin: 1mm 0;
-    }
-
-    .qr-code {
-      width: 50mm;
-      height: 50mm;
-    }
-
-    .pix-label {
-      font-size: 10px;
-      font-weight: bold;
-      margin-top: 2mm;
-      text-align: left;
-    }
-
-    .pix-code {
-      font-size: 8px;
-      line-height: 1.3;
-      text-align: left;
-      margin-top: 1mm;
-      padding: 1mm;
-      border: 1px dashed #000;
-    }
-
-    .pix-valor {
-      font-size: 12px;
-      font-weight: bold;
-      margin-top: 2mm;
-    }
-
-    .break-all {
-      word-break: break-all;
-    }
-
-    .footer-corte {
-      text-align: center;
-      margin-top: 3mm;
-      font-size: 10px;
-      letter-spacing: 2px;
-    }
-
-    .timestamp {
-      text-align: center;
-      font-size: 8px;
-      color: #333;
-      margin-top: 2mm;
-    }
-
-    @media print {
-      body {
-        width: 80mm;
-        max-width: 80mm;
-        padding: 2mm 3mm;
-      }
-
-      .no-print {
-        display: none !important;
-      }
-    }
-
-    @media screen {
-      body {
-        border: 1px solid #ccc;
-        margin: 10px auto;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      }
-    }
+    body, html { margin: 0; padding: 0; font-family: Arial, Verdana, sans-serif; background: #fff; }
+    table, table tbody { margin: 0; padding: 0; border: 0; border-collapse: collapse; }
+    table.bordas td { border: 1px solid #000; border-collapse: collapse; }
+    td { padding: 1px 5px; vertical-align: top; }
+    label { font-size: 9px; display: block; margin-bottom: 0; color: #000; }
+    span { font-size: 11px; font-weight: bold; }
+    p { margin: 0; padding: 2px; font-size: 11px; }
+    .bold { font-weight: bold; }
+    .right { float: right; }
+    @media print { @page { margin: 0; padding: 0; } }
   </style>
 </head>
 <body>
-  <!-- Cabecalho Empresa -->
-  <div class="header-empresa">
-    <div class="nome">SEEG FIBRAS TELECOM</div>
-    <div class="cnpj">CNPJ: 25.452.912/0001-25</div>
+  <!-- Linha 1: Codigo banco + Linha digitavel -->
+  <table style="width:${larguraTabela}; margin: 0;">
+    <tr>
+      <td style="width:50px;">
+        <span style="font-size:15px; border-right:1px solid #000; padding:0 10px;">
+          ${codigoBanco}
+        </span>
+      </td>
+      <td>
+        <span style="font-size:14px; letter-spacing:1px;">${linhaDigitavel}</span>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Tabela principal -->
+  <table class="bordas" style="width:${larguraTabela};">
+    <!-- Linha: Local pagamento | Vencimento | PIX -->
+    <tr>
+      <td colspan="5">
+        <label>Local de Pagamento</label>
+        <span style="font-size:10px;">${localPagamento}</span>
+      </td>
+      <td>
+        <label>Vencimento</label>
+        <span>${vencimento}</span>
+      </td>
+      ${pixRowspan}
+    </tr>
+
+    <!-- Linha: Beneficiario | CNPJ | Agencia/Codigo -->
+    <tr>
+      <td colspan="4">
+        <label>Benefici&aacute;rio</label>
+        <span>${cedente}</span>
+      </td>
+      <td>
+        <label>CNPJ</label>
+        <span style="font-size:10px;">25.452.912/0001-25</span>
+      </td>
+      <td>
+        <label>Ag&ecirc;ncia/C&oacute;digo Benefici&aacute;rio</label>
+        <span>${agenciaCodigo}</span>
+      </td>
+    </tr>
+
+    <!-- Linha: Data doc | Num doc | Especie doc | Aceite | Data proc | Nosso numero -->
+    <tr>
+      <td>
+        <label>Data Documento</label>
+        <span>${dataDocumento}</span>
+      </td>
+      <td>
+        <label>N&ordm; Documento</label>
+        <span>${numDocumento}</span>
+      </td>
+      <td>
+        <label>Esp&eacute;cie Doc.</label>
+        <span>${especieDoc}</span>
+      </td>
+      <td>
+        <label>Aceite</label>
+        <span>${aceite}</span>
+      </td>
+      <td>
+        <label>Data Processamento</label>
+        <span>${dataProcessamento}</span>
+      </td>
+      <td>
+        <label>Nosso N&uacute;mero</label>
+        <span>${nossoNumero}</span>
+      </td>
+    </tr>
+
+    <!-- Linha: Uso banco | Carteira | Moeda | Qtd moeda | Valor | Valor documento -->
+    <tr>
+      <td>
+        <label>Uso do Banco</label>
+        <span>&nbsp;</span>
+      </td>
+      <td>
+        <label>Carteira</label>
+        <span>${carteira}</span>
+      </td>
+      <td>
+        <label>Moeda</label>
+        <span>${especie}</span>
+      </td>
+      <td>
+        <label>Quantidade</label>
+        <span>&nbsp;</span>
+      </td>
+      <td>
+        <label>Valor</label>
+        <span>&nbsp;</span>
+      </td>
+      <td>
+        <label>(=) Valor do Documento</label>
+        <span style="font-size:13px;">R$ ${valor}</span>
+      </td>
+    </tr>
+
+    <!-- Linha: Instrucoes (rowspan 5) | Desconto -->
+    <tr>
+      <td colspan="5" rowspan="5" style="vertical-align:top;">
+        <label>Instru&ccedil;&otilde;es (Texto de responsabilidade do benefici&aacute;rio)</label>
+        ${instrucoes.map(i => `<p>${i}</p>`).join('\n        ')}
+      </td>
+      <td>
+        <label>(-) Desconto/Abatimento</label>
+        <span>&nbsp;</span>
+      </td>
+    </tr>
+
+    <!-- Deducoes -->
+    <tr>
+      <td>
+        <label>(-) Outras Dedu&ccedil;&otilde;es</label>
+        <span>&nbsp;</span>
+      </td>
+    </tr>
+
+    <!-- Mora/Multa -->
+    <tr>
+      <td>
+        <label>(+) Mora/Multa</label>
+        <span>&nbsp;</span>
+      </td>
+    </tr>
+
+    <!-- Acrescimos -->
+    <tr>
+      <td>
+        <label>(+) Outros Acr&eacute;scimos</label>
+        <span>&nbsp;</span>
+      </td>
+    </tr>
+
+    <!-- Valor cobrado -->
+    <tr>
+      <td>
+        <label>(=) Valor Cobrado</label>
+        <span>&nbsp;</span>
+      </td>
+    </tr>
+
+    <!-- Pagador -->
+    <tr>
+      <td colspan="${temPix ? '7' : '6'}">
+        <label>Pagador</label>
+        <span>${nome} - ${cpf}</span>
+        <p style="font-size:10px;">${enderecoCompleto}</p>
+      </td>
+    </tr>
+
+    <!-- Sacador/Avalista -->
+    <tr>
+      <td colspan="${temPix ? '7' : '6'}">
+        <label>Sacador/Avalista</label>
+        <span style="font-size:10px;">${sacadorRazao}</span>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Codigo de barras -->
+  ${barcodeBase64 ? `
+  <div style="margin-top:3px;">
+    <img src="${barcodeBase64}" width="500" style="display:block;">
   </div>
-
-  <!-- Dados do Cliente -->
-  <div class="section">
-    <div class="section-title">BOLETO BANCARIO</div>
-    <div><span class="label">Cliente:</span> ${nome}</div>
-    <div><span class="label">CPF/CNPJ:</span> ${cpf}</div>
-    ${endereco ? `<div><span class="label">End.:</span> ${endereco}</div>` : ''}
-    <div>${cidade}${uf ? '/' + uf : ''}${cep ? ' - CEP: ' + cep : ''}</div>
-  </div>
-
-  <div class="separator"></div>
-
-  <!-- Dados do Boleto -->
-  <div class="section">
-    <div><span class="label">Documento:</span> ${numDocumento}</div>
-    <div><span class="label">Nosso Nr.:</span> ${nossoNumero}</div>
-    <div><span class="label">Vencimento:</span> ${vencimento}</div>
-    <div class="valor-destaque">R$ ${valor}</div>
-  </div>
-
-  <div class="separator"></div>
-
-  ${instrucoes.length > 0 ? `
-  <!-- Instrucoes -->
-  <div class="section">
-    <div class="label">Instrucoes:</div>
-    <ul class="instrucoes">
-      ${instrucoes.map(i => `<li>${i}</li>`).join('\n      ')}
-    </ul>
-  </div>
-  <div class="separator"></div>
   ` : ''}
-
-  <!-- Linha Digitavel -->
-  <div class="section">
-    <div class="label" style="text-align:center;">LINHA DIGITAVEL</div>
-    <div class="linha-digitavel">${linhaDigitavel}</div>
-    ${localPagamento ? `<div class="local-pagamento">${localPagamento}</div>` : ''}
-  </div>
-
-  <!-- PIX -->
-  ${pixHtml}
-
-  <!-- Rodape -->
-  <div class="separator-double"></div>
-  <div class="timestamp">Impresso em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Cuiaba' })}</div>
-  <div class="footer-corte">&#9986; - - - - - - - - - - - - - -</div>
-
-  <script>
-    // Só auto-imprime se abriu direto no navegador (não em iframe)
-    if (window === window.top) {
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          window.print();
-        });
-      });
-    }
-  </script>
 </body>
 </html>`;
 }
