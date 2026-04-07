@@ -302,6 +302,100 @@ async function obterPdfBoleto(idBoleto) {
   }
 }
 
+// Obtém dados estruturados do boleto (JSON) via get_boleto com tipo_boleto: 'dados'
+async function obterDadosBoleto(idBoleto) {
+  const url = `${getBaseUrl()}/get_boleto`;
+
+  try {
+    const response = await axios({
+      method: 'POST',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': getAuthHeader(),
+        'ixcsoft': 'listar'
+      },
+      data: {
+        boletos: String(idBoleto),
+        juro: 'S',
+        multa: 'S',
+        atualiza_boleto: 'S',
+        tipo_boleto: 'dados',
+        base64: 'N',
+        layout_impressao: ''
+      },
+      timeout: 15000
+    });
+
+    const dados = Array.isArray(response.data) ? response.data[0] : response.data;
+    if (!dados) throw new Error('Nenhum dado retornado para o boleto.');
+
+    // Limpa campo sacado: "17444 - Nome" → "Nome"
+    if (dados.sacado && dados.sacado.includes(' - ')) {
+      dados.sacado = dados.sacado.split(' - ').slice(1).join(' - ').trim();
+    }
+
+    // Limpa endereço: remove "Apto nan", "BL: nan", etc.
+    if (dados.Endereco) {
+      dados.Endereco = dados.Endereco
+        .replace(/,?\s*Apto\s+nan\b/gi, '')
+        .replace(/\s*-\s*BL:\s*nan\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
+    return dados;
+  } catch (error) {
+    logger.error(`Erro ao obter dados do boleto ${idBoleto}: ${error.message}`);
+    throw new Error('Não foi possível obter os dados do boleto.');
+  }
+}
+
+// Obtém dados do PIX (QR Code) via get_pix
+// Retorna null em caso de erro (boleto imprime sem PIX)
+async function obterPix(idBoleto) {
+  const url = `${getBaseUrl()}/get_pix`;
+
+  try {
+    const response = await axios({
+      method: 'POST',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': getAuthHeader(),
+        'ixcsoft': 'listar'
+      },
+      data: {
+        id_areceber: String(idBoleto)
+      },
+      timeout: 15000
+    });
+
+    const data = response.data;
+    if (!data || data.type !== 'success' || !data.pix || !data.pix.qrCode) {
+      logger.warn(`PIX não disponível para boleto ${idBoleto}`);
+      return null;
+    }
+
+    const qrCode = data.pix.qrCode;
+    let qrCodeBase64 = qrCode.imagemQrcode || '';
+
+    // Garante prefixo data:image se ausente
+    if (qrCodeBase64 && !qrCodeBase64.startsWith('data:')) {
+      qrCodeBase64 = `data:image/png;base64,${qrCodeBase64}`;
+    }
+
+    return {
+      qrCodeBase64,
+      qrCodeText: qrCode.qrcode || '',
+      valor: data.pix.dadosPix?.valor?.original || ''
+    };
+  } catch (error) {
+    logger.warn(`Erro ao obter PIX do boleto ${idBoleto}: ${error.message}`);
+    return null;
+  }
+}
+
 // Testa conexão com a API
 async function testarConexao() {
   try {
@@ -327,5 +421,7 @@ module.exports = {
   buscarContratos,
   buscarBoletos,
   obterPdfBoleto,
+  obterDadosBoleto,
+  obterPix,
   testarConexao
 };

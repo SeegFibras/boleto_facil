@@ -17,6 +17,10 @@ const Api = {
   },
 
   getBoletoUrl(id) {
+    return `/api/boleto/${id}/termica`;
+  },
+
+  getBoletoPdfUrl(id) {
     return `/api/boleto/${id}/pdf`;
   },
 

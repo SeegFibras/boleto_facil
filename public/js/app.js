@@ -113,11 +113,6 @@ const app = {
         if (id) this.imprimir(id);
         return;
       }
-      const btnImprimirTodos = e.target.closest('.btn-imprimir-todos');
-      if (btnImprimirTodos) {
-        const ids = JSON.parse(btnImprimirTodos.dataset.boletoIds || '[]');
-        if (ids.length) this.imprimirTodos(ids);
-      }
     });
   },
 
@@ -212,20 +207,9 @@ const app = {
       return dA - dB;
     });
 
-    const boletoIds = boletos.filter(b => b.temPdf).map(b => b.id);
-
     let html = `
       <div class="boletos-header">
         <h2>${boletos.length} boleto(s) em aberto</h2>
-        ${boletoIds.length > 1 ? `
-          <button type="button" class="btn-imprimir-todos" data-boleto-ids='${JSON.stringify(boletoIds)}'>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-              <rect x="6" y="14" width="12" height="8"/>
-            </svg>
-            Imprimir Todos
-          </button>
-        ` : ''}
       </div>
     `;
 
@@ -303,17 +287,6 @@ const app = {
       this.showToast('Preparando boleto...', 'success');
       await Printer.imprimir(id);
       this.showToast('Boleto enviado para impressão!', 'success');
-    } catch (error) {
-      this.showToast('Erro ao imprimir. Tente novamente.', 'error');
-    }
-  },
-
-  // Imprimir todos
-  async imprimirTodos(ids) {
-    try {
-      this.showToast(`Imprimindo ${ids.length} boleto(s)...`, 'success');
-      await Printer.imprimirVarios(ids);
-      this.showToast('Todos os boletos enviados!', 'success');
     } catch (error) {
       this.showToast('Erro ao imprimir. Tente novamente.', 'error');
     }
