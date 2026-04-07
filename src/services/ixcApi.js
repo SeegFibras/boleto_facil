@@ -283,7 +283,7 @@ async function obterPdfBoleto(idBoleto) {
         atualiza_boleto: 'S',
         tipo_boleto: 'arquivo',
         base64: 'S',
-        layout_impressao: 'carne_simples'
+        layout_impressao: 'boleto_mini_margem_menor'
       },
       timeout: 30000
     });
