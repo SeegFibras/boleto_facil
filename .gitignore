@@ -8,6 +8,8 @@ logs/
 *.log
 .claude/
 deploy-vps.zip
+deploy-info.json
+*.bak
 
 # Arquivos de certificado SSL (nunca versionados)
 *.pem

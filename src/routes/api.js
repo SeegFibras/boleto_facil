@@ -1,6 +1,8 @@
 // Rotas da API interna
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const { buscarCliente, buscarContratos, buscarBoletos, obterPdfBoleto, obterDadosBoleto, obterPix } = require('../services/ixcApi');
 const { gerarHtmlTermica } = require('../templates/termicaBoleto');
 const { gerarPdfBoleto } = require('../services/pdfGenerator');
@@ -177,6 +179,29 @@ router.post('/boletos/pdf', apiLimiter, async (req, res) => {
     logger.error(`Erro ao obter PDF dos boletos ${ids.join(',')}: ${error.message}`);
     res.status(500).json({ erro: 'Não foi possível obter os boletos. Tente novamente.' });
   }
+});
+
+// Status do deploy
+router.get('/deploy/status', (req, res) => {
+  const deployInfoPath = path.join(__dirname, '..', '..', 'deploy-info.json');
+  let deployInfo = { version: 'unknown', lastDeploy: null, deployedBy: null };
+
+  try {
+    if (fs.existsSync(deployInfoPath)) {
+      deployInfo = JSON.parse(fs.readFileSync(deployInfoPath, 'utf8'));
+    }
+  } catch (err) {
+    logger.warn(`Erro ao ler deploy-info.json: ${err.message}`);
+  }
+
+  res.json({
+    version: deployInfo.version,
+    fullCommit: deployInfo.fullCommit || null,
+    lastDeploy: deployInfo.lastDeploy,
+    deployedBy: deployInfo.deployedBy || null,
+    uptime: `${Math.floor(process.uptime())}s`,
+    status: 'online'
+  });
 });
 
 module.exports = router;

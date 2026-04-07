@@ -1,262 +1,143 @@
 #!/bin/bash
 # =============================================================================
-# deploy.sh — Script de configuração do servidor VPS para SEEG FIBRAS Boletos
-# Testado em: Ubuntu 22.04 LTS (Hostinger VPS)
-#
-# USO:
-#   1. Conectar ao VPS via SSH:  ssh usuario@IP_DA_VPS
-#   2. Copiar este arquivo para o servidor e executar:
-#      chmod +x deploy.sh && sudo ./deploy.sh
+# Auto-Deploy Script — SEEG FIBRAS Boletos
+# Roda via cron a cada 2 minutos como root
+# Uso: */2 * * * * /opt/boleto-seeg/deploy.sh >> /opt/boleto-seeg/logs/deploy-cron.log 2>&1
 # =============================================================================
 
-set -e  # Interrompe em qualquer erro
+set -euo pipefail
 
-DOMINIO="SEU-DOMINIO.EXEMPLO"
-APP_DIR="/opt/boleto-seeg"
+PROJECT_DIR="/opt/boleto-seeg"
+LOG_DIR="$PROJECT_DIR/logs"
+LOG_FILE="$LOG_DIR/deploy.log"
+LOCK_FILE="/tmp/boleto-seeg-deploy.lock"
+DEPLOY_INFO="$PROJECT_DIR/deploy-info.json"
 APP_USER="seeg"
-IP_PERMITIDO="SEU.IP.PUBLICO.AQUI"
-EMAIL_CERTBOT="seu-email@dominio.com"
+PM2_APP="boletos-seeg-fibras"
+HEALTH_URL="http://127.0.0.1:3000/"
+EXECUTABLE_PATH="/opt/boleto-seeg/.cache-puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome"
+MAX_LOG_SIZE=5242880  # 5MB
 
-echo ""
-echo "╔══════════════════════════════════════════════════╗"
-echo "║   SEEG FIBRAS — Deploy Servidor de Boletos       ║"
-echo "╚══════════════════════════════════════════════════╝"
-echo ""
+# Garante que o diretório de logs existe
+mkdir -p "$LOG_DIR"
 
-echo "Configuração inicial (pressione ENTER para manter o valor entre colchetes):"
-read -p "Domínio da aplicação [$DOMINIO]: " input_dominio
-read -p "IP permitido no Nginx (allow) [$IP_PERMITIDO]: " input_ip
-read -p "E-mail para Certbot [$EMAIL_CERTBOT]: " input_email
+# Rotação de log simples: trunca se passar de MAX_LOG_SIZE
+if [ -f "$LOG_FILE" ] && [ "$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)" -gt "$MAX_LOG_SIZE" ]; then
+    tail -n 500 "$LOG_FILE" > "$LOG_FILE.tmp"
+    mv "$LOG_FILE.tmp" "$LOG_FILE"
+fi
 
-if [ -n "$input_dominio" ]; then DOMINIO="$input_dominio"; fi
-if [ -n "$input_ip" ]; then IP_PERMITIDO="$input_ip"; fi
-if [ -n "$input_email" ]; then EMAIL_CERTBOT="$input_email"; fi
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
 
-if [ "$DOMINIO" = "SEU-DOMINIO.EXEMPLO" ] || [ "$IP_PERMITIDO" = "SEU.IP.PUBLICO.AQUI" ] || [ "$EMAIL_CERTBOT" = "seu-email@dominio.com" ]; then
-    echo ""
-    echo "ERRO: preencha domínio, IP permitido e e-mail válidos antes de continuar."
+# Lock para evitar execuções simultâneas
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    log "SKIP: Deploy já em execução"
+    exit 0
+fi
+
+cd "$PROJECT_DIR"
+
+# Fetch e verifica se há novos commits
+su - "$APP_USER" -c "cd $PROJECT_DIR && git fetch origin main" >> "$LOG_FILE" 2>&1
+
+LOCAL_HEAD=$(su - "$APP_USER" -c "cd $PROJECT_DIR && git rev-parse HEAD")
+REMOTE_HEAD=$(su - "$APP_USER" -c "cd $PROJECT_DIR && git rev-parse origin/main")
+
+if [ "$LOCAL_HEAD" = "$REMOTE_HEAD" ]; then
+    exit 0
+fi
+
+log "=========================================="
+log "DEPLOY INICIADO"
+log "Local:  $LOCAL_HEAD"
+log "Remote: $REMOTE_HEAD"
+
+# Hash do package.json antes do pull
+PKG_HASH_BEFORE=$(md5sum "$PROJECT_DIR/package.json" | awk '{print $1}')
+
+# Backup do pdfGenerator.js
+cp "$PROJECT_DIR/src/services/pdfGenerator.js" "$PROJECT_DIR/src/services/pdfGenerator.js.bak"
+log "Backup do pdfGenerator.js criado"
+
+# Git pull
+if ! su - "$APP_USER" -c "cd $PROJECT_DIR && git pull origin main" >> "$LOG_FILE" 2>&1; then
+    log "ERRO: git pull falhou"
+    cp "$PROJECT_DIR/src/services/pdfGenerator.js.bak" "$PROJECT_DIR/src/services/pdfGenerator.js"
     exit 1
 fi
 
-# ---------------------------------------------------------------------------
-# FASE 1 — Pacotes base
-# ---------------------------------------------------------------------------
-echo "[ 1/7 ] Atualizando sistema e instalando dependências..."
-apt-get update -q
-apt-get upgrade -y -q
-apt-get install -y -q curl git ufw nginx
+log "Git pull concluído"
 
-# ---------------------------------------------------------------------------
-# FASE 2 — Node.js 18+ via NodeSource
-# ---------------------------------------------------------------------------
-echo "[ 2/7 ] Instalando Node.js 18..."
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt-get install -y -q nodejs
-
-echo "   Node.js: $(node --version)"
-echo "   npm:     $(npm --version)"
-
-# Instalar PM2 globalmente
-npm install -g pm2 --quiet
-echo "   PM2: $(pm2 --version)"
-
-# ---------------------------------------------------------------------------
-# FASE 3 — Firewall UFW
-# ---------------------------------------------------------------------------
-echo "[ 3/7 ] Configurando firewall UFW..."
-ufw --force reset
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow 22/tcp    # SSH
-ufw allow 80/tcp    # HTTP (redireciona para HTTPS)
-ufw allow 443/tcp   # HTTPS
-ufw --force enable
-echo "   Regras ativas:"
-ufw status numbered
-
-# ---------------------------------------------------------------------------
-# FASE 4 — Usuário da aplicação
-# ---------------------------------------------------------------------------
-echo "[ 4/7 ] Criando usuário '$APP_USER'..."
-if ! id "$APP_USER" &>/dev/null; then
-    useradd --system --shell /bin/bash --home-dir "$APP_DIR" --create-home "$APP_USER"
-    echo "   Usuário criado: $APP_USER"
-else
-    echo "   Usuário já existe: $APP_USER"
+# Restaura executablePath no pdfGenerator.js se foi sobrescrito
+if ! grep -q "executablePath" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
+    log "Restaurando executablePath no pdfGenerator.js"
+    sed -i "s|puppeteer.launch({|puppeteer.launch({\n        executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
+elif ! grep -q "$EXECUTABLE_PATH" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
+    log "Atualizando executablePath no pdfGenerator.js"
+    sed -i "s|executablePath:.*|executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
 fi
 
-# ---------------------------------------------------------------------------
-# FASE 5 — Diretório da aplicação
-# ---------------------------------------------------------------------------
-echo "[ 5/7 ] Preparando diretório da aplicação em $APP_DIR..."
-mkdir -p "$APP_DIR"
-mkdir -p "$APP_DIR/data"
-mkdir -p "$APP_DIR/logs"
-chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
+log "executablePath verificado/restaurado"
 
-echo ""
-echo "┌─────────────────────────────────────────────────────────────────┐"
-echo "│  PRÓXIMO PASSO MANUAL: Upload do código                         │"
-echo "│                                                                  │"
-echo "│  Transfira os arquivos do projeto via SFTP/WinSCP para:          │"
-echo "│  $APP_DIR                                    │"
-echo "│                                                                  │"
-echo "│  NÃO enviar: .env  data/credentials.enc  data/*.db  node_modules │"
-echo "└─────────────────────────────────────────────────────────────────┘"
-echo ""
-read -p "Pressione ENTER quando o upload estiver concluído..."
-
-# Instala dependências Node.js
-cd "$APP_DIR"
-npm install --production --quiet
-chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
-
-# ---------------------------------------------------------------------------
-# FASE 6 — Nginx (configuração HTTP temporária para validação do Certbot)
-# ---------------------------------------------------------------------------
-echo "[ 6/7 ] Configurando Nginx (modo temporário HTTP)..."
-
-cat >/etc/nginx/sites-available/boleto-seeg <<EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${DOMINIO};
-
-    location / {
-        proxy_pass         http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              \$host;
-        proxy_set_header   X-Real-IP         \$remote_addr;
-        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
-    }
-}
-EOF
-
-# Remove site padrão e ativa o novo
-rm -f /etc/nginx/sites-enabled/default
-ln -sf /etc/nginx/sites-available/boleto-seeg /etc/nginx/sites-enabled/boleto-seeg
-
-nginx -t
-systemctl reload nginx
-echo "   Nginx temporário aplicado (HTTP)."
-
-# ---------------------------------------------------------------------------
-# FASE 7 — Certbot (Let's Encrypt)
-# ---------------------------------------------------------------------------
-echo "[ 7/7 ] Instalando Certbot e emitindo certificado SSL..."
-apt-get install -y -q snapd
-snap install --classic certbot 2>/dev/null || apt-get install -y -q certbot python3-certbot-nginx
-
-echo ""
-echo "┌────────────────────────────────────────────────────────────────┐"
-echo "│  VERIFICAR ANTES DE CONTINUAR:                                  │"
-echo "│  O DNS do domínio '$DOMINIO'        │"
-echo "│  já deve apontar para o IP desta VPS.                           │"
-echo "│  Sem isso, o Certbot vai falhar.                                 │"
-echo "└────────────────────────────────────────────────────────────────┘"
-echo ""
-read -p "O DNS já está apontando? (s/N) " dns_ok
-
-if [[ "$dns_ok" =~ ^[Ss]$ ]]; then
-    certbot --nginx -d "$DOMINIO" --non-interactive --agree-tos --email "$EMAIL_CERTBOT" --redirect
-    echo ""
-    echo "   Certificado SSL emitido com sucesso!"
-    echo "   Renovação automática já configurada pelo Certbot."
-
-    echo "   Aplicando configuração final com HTTPS e restrição de IP..."
-    cat >/etc/nginx/sites-available/boleto-seeg <<EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${DOMINIO};
-
-    location /.well-known/acme-challenge/ {
-        allow all;
-    }
-
-    location / {
-        return 301 https://\$host\$request_uri;
-    }
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name ${DOMINIO};
-
-    # Restrição de IP
-    allow ${IP_PERMITIDO};
-    deny all;
-
-    ssl_certificate     /etc/letsencrypt/live/${DOMINIO}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${DOMINIO}/privkey.pem;
-    include             /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
-
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header X-Frame-Options SAMEORIGIN always;
-    add_header X-Content-Type-Options nosniff always;
-    add_header Referrer-Policy no-referrer-when-downgrade always;
-
-    client_max_body_size 1m;
-
-    location / {
-        proxy_pass         http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              \$host;
-        proxy_set_header   X-Real-IP         \$remote_addr;
-        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
-    }
-
-    access_log /var/log/nginx/boleto-seeg-access.log;
-    error_log  /var/log/nginx/boleto-seeg-error.log warn;
-}
-EOF
-
-    nginx -t
-    systemctl reload nginx
-    echo "   Configuração final HTTPS aplicada."
-else
-    echo ""
-    echo "   Certificado SSL adiado. Quando o DNS estiver configurado, execute:"
-    echo "   sudo certbot --nginx -d $DOMINIO"
-    echo ""
-    echo "   Depois do certificado, aplique a configuração final com:"
-    echo "   sudo cp $APP_DIR/nginx/boleto-seeg.conf /etc/nginx/sites-available/boleto-seeg"
-    echo "   sudo nginx -t && sudo systemctl reload nginx"
-    echo ""
+# Verifica se package.json mudou
+PKG_HASH_AFTER=$(md5sum "$PROJECT_DIR/package.json" | awk '{print $1}')
+if [ "$PKG_HASH_BEFORE" != "$PKG_HASH_AFTER" ]; then
+    log "package.json mudou — rodando npm install"
+    su - "$APP_USER" -c "cd $PROJECT_DIR && npm install --production" >> "$LOG_FILE" 2>&1
+    log "npm install concluído"
 fi
 
-# ---------------------------------------------------------------------------
-# INSTRUÇÕES FINAIS
-# ---------------------------------------------------------------------------
-echo ""
-echo "╔══════════════════════════════════════════════════════╗"
-echo "║   Infraestrutura pronta! Falta iniciar a aplicação   ║"
-echo "╚══════════════════════════════════════════════════════╝"
-echo ""
-echo "Execute os comandos abaixo para finalizar:"
-echo ""
-echo "  # Mudar para o usuário da aplicação"
-echo "  su - $APP_USER --shell /bin/bash"
-echo ""
-echo "  # Entrar no diretório"
-echo "  cd $APP_DIR"
-echo ""
-echo "  # Configurar credenciais IXC (gera .env e credentials.enc)"
-echo "  node setup.js"
-echo ""
-echo "  # Iniciar com PM2"
-echo "  pm2 start ecosystem.config.js"
-echo "  pm2 save"
-echo "  pm2 startup systemd -u $APP_USER --hp $APP_DIR"
-echo ""
-echo "  # Testar"
-echo "  curl http://127.0.0.1:3000/api/health"
-echo ""
+# Reinicia PM2
+log "Reiniciando PM2..."
+su - "$APP_USER" -c "pm2 restart $PM2_APP" >> "$LOG_FILE" 2>&1
+
+# Espera e verifica status
+sleep 5
+PM2_STATUS=$(su - "$APP_USER" -c "pm2 jlist" 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 || echo "unknown")
+log "PM2 status: $PM2_STATUS"
+
+# Health check
+HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$HEALTH_URL" || echo "000")
+log "Health check: HTTP $HTTP_CODE"
+
+if [ "$HTTP_CODE" != "200" ]; then
+    log "ERRO: Health check falhou (HTTP $HTTP_CODE) — iniciando rollback"
+
+    su - "$APP_USER" -c "cd $PROJECT_DIR && git reset --hard HEAD~1" >> "$LOG_FILE" 2>&1
+
+    # Restaura executablePath após rollback
+    if ! grep -q "$EXECUTABLE_PATH" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
+        sed -i "s|puppeteer.launch({|puppeteer.launch({\n        executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
+    fi
+
+    su - "$APP_USER" -c "pm2 restart $PM2_APP" >> "$LOG_FILE" 2>&1
+    sleep 5
+
+    ROLLBACK_CHECK=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$HEALTH_URL" || echo "000")
+    log "Rollback health check: HTTP $ROLLBACK_CHECK"
+    log "DEPLOY FALHOU — rollback aplicado"
+    log "=========================================="
+    exit 1
+fi
+
+# Grava info do deploy
+NEW_COMMIT=$(su - "$APP_USER" -c "cd $PROJECT_DIR && git rev-parse --short HEAD")
+FULL_COMMIT=$(su - "$APP_USER" -c "cd $PROJECT_DIR && git rev-parse HEAD")
+cat > "$DEPLOY_INFO" <<EOF
+{
+  "version": "$NEW_COMMIT",
+  "fullCommit": "$FULL_COMMIT",
+  "lastDeploy": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "deployedBy": "auto",
+  "previousCommit": "$LOCAL_HEAD"
+}
+EOF
+chown "$APP_USER":"$APP_USER" "$DEPLOY_INFO"
+
+rm -f "$PROJECT_DIR/src/services/pdfGenerator.js.bak"
+
+log "DEPLOY CONCLUÍDO com sucesso: $LOCAL_HEAD -> $NEW_COMMIT"
+log "=========================================="
