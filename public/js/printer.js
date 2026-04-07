@@ -9,8 +9,19 @@ const Printer = {
       return new Promise((resolve, reject) => {
         frame.onload = () => {
           try {
-            frame.contentWindow.print();
-            resolve(true);
+            // Espera 2 frames para garantir que o conteúdo foi pintado
+            const win = frame.contentWindow;
+            win.requestAnimationFrame(() => {
+              win.requestAnimationFrame(() => {
+                try {
+                  win.print();
+                  resolve(true);
+                } catch (e) {
+                  window.open(url, '_blank');
+                  resolve(true);
+                }
+              });
+            });
           } catch (e) {
             // Fallback: abre em nova aba
             window.open(url, '_blank');

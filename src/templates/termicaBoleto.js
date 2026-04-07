@@ -55,7 +55,6 @@ function gerarHtmlTermica(dados, pix) {
   <title>Boleto - ${numDocumento}</title>
   <style>
     @page {
-      size: 80mm auto;
       margin: 0;
       padding: 0;
     }
@@ -307,9 +306,14 @@ function gerarHtmlTermica(dados, pix) {
   <div class="footer-corte">&#9986; - - - - - - - - - - - - - -</div>
 
   <script>
-    window.onload = function() {
-      window.print();
-    };
+    // Só auto-imprime se abriu direto no navegador (não em iframe)
+    if (window === window.top) {
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          window.print();
+        });
+      });
+    }
   </script>
 </body>
 </html>`;
