@@ -76,8 +76,7 @@ function gerarHtmlTermica(dados, pix) {
   const pixRowspan = temPix ? `
     <td rowspan="10" style="width:200px; text-align:center; vertical-align:middle; padding:5px;">
       <strong style="font-size:11px;">PAGUE COM PIX</strong><br>
-      <img src="${pix.qrCodeBase64}" width="180" height="180" style="margin:3px 0;"><br>
-      <span style="font-size:8px; word-break:break-all; display:block; max-width:190px; margin:0 auto;">${escapeHtml(pix.qrCodeText || '')}</span>
+      <img src="${pix.qrCodeBase64}" width="180" height="180" style="margin:3px 0;">
     </td>` : '';
 
   return `<!DOCTYPE html>

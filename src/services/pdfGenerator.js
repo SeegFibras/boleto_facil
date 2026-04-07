@@ -8,20 +8,29 @@ let browser = null;
 
 async function getBrowser() {
   if (!browser || !browser.isConnected()) {
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-    });
+    try {
+      browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      });
+      logger.info('Puppeteer browser iniciado');
+    } catch (error) {
+      logger.error(`Falha ao iniciar Puppeteer: ${error.message}`);
+      throw error;
+    }
   }
   return browser;
 }
 
 async function gerarPdfBoleto(dadosBoleto, dadosPix) {
-  const html = gerarHtmlTermica(dadosBoleto, dadosPix);
-  const b = await getBrowser();
-  const page = await b.newPage();
+  const idBoleto = dadosBoleto.numero_documento || dadosBoleto.id_receber || 'desconhecido';
+  let page = null;
 
   try {
+    const html = gerarHtmlTermica(dadosBoleto, dadosPix);
+    const b = await getBrowser();
+    page = await b.newPage();
+
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     // Tamanho customizado igual ao sistema antigo:
@@ -37,9 +46,13 @@ async function gerarPdfBoleto(dadosBoleto, dadosPix) {
       margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
     });
 
+    logger.info(`PDF térmico gerado para boleto ${idBoleto} (${temPix ? 'com' : 'sem'} PIX)`);
     return pdf;
+  } catch (error) {
+    logger.error(`Erro ao gerar PDF térmico do boleto ${idBoleto}: ${error.message}`);
+    throw error;
   } finally {
-    await page.close();
+    if (page) await page.close();
   }
 }
 
