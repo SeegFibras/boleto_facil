@@ -38,7 +38,7 @@ async function gerarPdfBoleto(dadosBoleto, dadosPix) {
     // Chromium precisa de mais altura (~120mm) para conter pagador + codigo de barras
     const temPix = !!(dadosPix && dadosPix.qrCodeBase64);
     const larguraMm = temPix ? 278 : 229;
-    const alturaMm = 120; // Maior que os 85mm do DomPDF para caber tudo no Chromium
+    const alturaMm = 155; // Maior que os 85mm do DomPDF para caber tudo no Chromium
 
     // Viewport deve corresponder a largura em pixels (DPI 96: 1pt ≈ 1.333px)
     const viewportWidth = temPix ? 1050 : 865;
@@ -80,7 +80,4 @@ async function fecharBrowser() {
   }
 }
 
-process.on('SIGTERM', fecharBrowser);
-process.on('SIGINT', fecharBrowser);
-
-module.exports = { gerarPdfBoleto };
+process.on('SIGTERM',
