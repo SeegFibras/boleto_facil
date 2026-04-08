@@ -56,16 +56,18 @@ function gerarHtmlTermica(dados, pix) {
   const aceite = escapeHtml(dados.aceite || '');
   const carteira = escapeHtml(dados.carteira || '');
 
-  // Instrucoes
-  const instrucoes = [dados.linha1, dados.linha2, dados.linha3, dados.Instrucao1, dados.Instrucao2]
-    .filter(l => l && l.trim())
-    .map(l => escapeHtml(l.trim()));
+  // Instrucoes (sempre mostra todas as linhas, igual ao DomPDF)
+  const linha1 = escapeHtml(dados.linha1 || '');
+  const linha2 = escapeHtml(dados.linha2 || '');
+  const linha3 = escapeHtml(dados.linha3 || '');
+  const instrucao1 = escapeHtml(dados.Instrucao1 || '');
+  const instrucao2 = escapeHtml(dados.Instrucao2 || '');
   const obs = escapeHtml(dados.obs || '');
 
   // Codigo de barras
   const barcodeBase64 = gerarCodigoBarras(dados.codigo_barras);
 
-  // Endereco completo do pagador (formato do sistema antigo)
+  // Endereco completo do pagador (formato identico ao DomPDF)
   const enderecoCompleto = `${endereco} - Cidade: ${cidade}, CEP: ${cep}, UF: ${estado}`;
 
   // Largura da tabela e coluna PIX
@@ -120,7 +122,7 @@ function gerarHtmlTermica(dados, pix) {
     <!-- Linha: Local pagamento | Vencimento | PIX -->
     <tr>
       <td colspan="5">
-        <label>Local de Pagamento</label>
+        <label>Local de pagamento</label>
         <span>${localPagamento}</span>
       </td>
       <td style="width: 200px;">
@@ -142,7 +144,7 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>Ag&ecirc;ncia/C&oacute;digo Benefici&aacute;rio</label>
-        <span class="right">${agenciaCodigo}</span>
+        <span>${agenciaCodigo}</span>
       </td>
     </tr>
 
@@ -185,7 +187,7 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>Esp&eacute;cie Moeda</label>
-        <span class="right">${especie}</span>
+        <span class="right">${especie || 'R$'}</span>
       </td>
       <td>
         <label>Quant. Moeda</label>
@@ -194,7 +196,7 @@ function gerarHtmlTermica(dados, pix) {
         <label>(X) Valor</label>
       </td>
       <td>
-        <label>(=) Valor do Documento</label>
+        <label>(=) Valor Documento</label>
         <span class="right">${valor}</span>
       </td>
     </tr>
@@ -203,8 +205,12 @@ function gerarHtmlTermica(dados, pix) {
     <tr>
       <td colspan="5" rowspan="5">
         <label>Instru&ccedil;&otilde;es de responsabilidade do BENEFICI&Aacute;RIO. Qualquer d&uacute;vida sobre este boleto contate o benefici&aacute;rio</label>
-        ${instrucoes.map(i => `<p class="bold">${i}</p>`).join('\n        ')}
-        ${obs ? `<p class="obs">${obs}</p>` : ''}
+        <p class="bold">${linha1}</p>
+        <p class="bold">${linha2}</p>
+        <p class="bold">${linha3}</p>
+        <p class="bold">${instrucao1}</p>
+        <p class="bold">${instrucao2}</p>
+        <p class="obs">${obs}</p>
       </td>
       <td>
         <label>(-)Desconto</label>

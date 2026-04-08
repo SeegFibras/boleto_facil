@@ -47,9 +47,15 @@ async function gerarPdfBoleto(dadosBoleto, dadosPix) {
 
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
+    // Mede a altura real do conteudo renderizado e converte px -> mm (96 DPI)
+    const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
+    const alturaDinamica = Math.ceil(bodyHeight * 25.4 / 96) + 5; // +5mm margem seguranca
+    const alturaFinal = Math.max(alturaMm, alturaDinamica);
+    logger.info(`Boleto ${idBoleto}: body=${bodyHeight}px -> ${alturaDinamica}mm, usando ${alturaFinal}mm`);
+
     const pdf = await page.pdf({
       width: `${larguraMm}mm`,
-      height: `${alturaMm}mm`,
+      height: `${alturaFinal}mm`,
       printBackground: true,
       scale: 1,
       preferCSSPageSize: false,
