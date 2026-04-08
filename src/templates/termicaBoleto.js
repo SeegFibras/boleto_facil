@@ -21,7 +21,7 @@ function gerarCodigoBarras(codigoBarras) {
     const canvas = createCanvas(500, 50);
     JsBarcode(canvas, codigoBarras, {
       format: 'ITF',
-      width: 1.5,
+      width: 2,
       height: 50,
       displayValue: false,
       margin: 0
@@ -60,6 +60,7 @@ function gerarHtmlTermica(dados, pix) {
   const instrucoes = [dados.linha1, dados.linha2, dados.linha3, dados.Instrucao1, dados.Instrucao2]
     .filter(l => l && l.trim())
     .map(l => escapeHtml(l.trim()));
+  const obs = escapeHtml(dados.obs || '');
 
   // Codigo de barras
   const barcodeBase64 = gerarCodigoBarras(dados.codigo_barras);
@@ -70,14 +71,13 @@ function gerarHtmlTermica(dados, pix) {
   // Largura da tabela e coluna PIX
   const temPix = pix && pix.qrCodeBase64;
   const larguraTabela = temPix ? '1050px' : '865px';
-  const colspanTotal = temPix ? 7 : 6;
 
-  // QR Code PIX celula (rowspan na coluna direita)
+  // QR Code PIX celula (rowspan na coluna direita — layout identico ao Six Startup)
   const pixRowspan = temPix ? `
-    <td rowspan="10" style="width:220px; text-align:center; vertical-align:middle; padding:5px; position:relative;">
-      <div style="width:220px; height:220px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <strong style="font-size:11px;">Pague com Pix:</strong>
-        <img src="${pix.qrCodeBase64}" width="180" height="180" style="margin:3px 0;">
+    <td rowspan="10" style="width:200px; height: 1px; padding: 1px; overflow: hidden;">
+      <div style="position: absolute; width: 220px; height: 220px; padding: 2px; overflow: hidden">
+        Pague com Pix:
+        <img style="padding: 0; margin: 0; height: 220px" src="${pix.qrCodeBase64}">
       </div>
     </td>` : '';
 
@@ -87,15 +87,16 @@ function gerarHtmlTermica(dados, pix) {
   <meta charset="UTF-8">
   <title>Boleto - ${numDocumento}</title>
   <style>
-    body, html { margin: 0; padding: 0; font-family: Arial, Verdana, sans-serif; background: #fff; }
+    body, html { margin: 0; padding: 0; font-family: Arial, Verdana, sans-serif; }
     table, table tbody { margin: 0; padding: 0; border: 0; border-collapse: collapse; }
     table.bordas td { border: 1px solid #000; border-collapse: collapse; }
     td { padding: 1px 5px; vertical-align: top; }
-    label { font-size: 9px; display: block; margin-bottom: 0; color: #000; }
+    label { font-size: 9px; }
     span { font-size: 11px; font-weight: bold; }
     p { margin: 0; padding: 2px; font-size: 11px; }
     .bold { font-weight: bold; }
     .right { float: right; }
+    .obs { font-style: italic; }
     @media print { @page { margin: 0; padding: 0; } }
   </style>
 </head>
@@ -122,7 +123,7 @@ function gerarHtmlTermica(dados, pix) {
         <label>Local de Pagamento</label>
         <span style="font-size:10px;">${localPagamento}</span>
       </td>
-      <td>
+      <td style="width: 200px;">
         <label>Vencimento</label>
         <span class="right">${vencimento}</span>
       </td>
@@ -149,19 +150,19 @@ function gerarHtmlTermica(dados, pix) {
     <tr>
       <td>
         <label>Data Documento</label>
-        <span>${dataDocumento}</span>
+        <span class="right">${dataDocumento}</span>
       </td>
       <td>
         <label>N&ordm; Documento</label>
-        <span>${numDocumento}</span>
+        <span class="right">${numDocumento}</span>
       </td>
       <td>
         <label>Esp&eacute;cie Doc.</label>
-        <span>${especieDoc}</span>
+        <span class="right">${especieDoc}</span>
       </td>
       <td>
         <label>Aceite</label>
-        <span>${aceite}</span>
+        <span class="right">${aceite}</span>
       </td>
       <td>
         <label>Data Processamento</label>
@@ -197,7 +198,7 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>(=) Valor do Documento</label>
-        <span class="right" style="font-size:13px;">${valor}</span>
+        <span class="right">${valor}</span>
       </td>
     </tr>
 
@@ -206,6 +207,7 @@ function gerarHtmlTermica(dados, pix) {
       <td colspan="5" rowspan="5" style="vertical-align:top;">
         <label>Instru&ccedil;&otilde;es de responsabilidade do BENEFICI&Aacute;RIO. Qualquer d&uacute;vida sobre este boleto contate o benefici&aacute;rio</label>
         ${instrucoes.map(i => `<p>${i}</p>`).join('\n        ')}
+        ${obs ? `<p class="obs">${obs}</p>` : ''}
       </td>
       <td>
         <label>(-)Desconto</label>
@@ -247,20 +249,21 @@ function gerarHtmlTermica(dados, pix) {
 
     <!-- Pagador + Sacador/Avalista (mesma celula como no sistema antigo) -->
     <tr>
-      <td colspan="${colspanTotal}">
+      <td colspan="6">
         <label>Pagador</label>
         <span>${nome} - ${cpf}</span>
-        <p style="font-size:10px;">${enderecoCompleto}</p>
-        <p style="font-size:10px;"><strong>Sacador/Avalista:</strong> ${sacadorRazao}</p>
+        <p style="font-size:10px; margin-left: 37px;">${enderecoCompleto}</p>
+        <label class="bold">Sacador/ Avalista:</label>
+        <span>${sacadorRazao}</span>
       </td>
     </tr>
   </table>
 
   <!-- Codigo de barras -->
   ${barcodeBase64 ? `
-  <div style="margin-top:3px;">
-    <img src="${barcodeBase64}" width="500" style="display:block;">
-  </div>
+  <p style="margin-left: 5px; display: flex;">
+    <img width="500px" src="${barcodeBase64}">
+  </p>
   ` : ''}
 </body>
 </html>`;

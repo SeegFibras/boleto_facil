@@ -31,18 +31,23 @@ async function gerarPdfBoleto(dadosBoleto, dadosPix) {
     const b = await getBrowser();
     page = await b.newPage();
 
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-
     // Tamanho customizado igual ao sistema antigo:
     // DomPDF usa [0, 0, 790, 240] pontos = ~278mm x 85mm (com PIX)
     // Sem PIX: [0, 0, 650, 240] = ~229mm x 85mm
     const temPix = !!(dadosPix && dadosPix.qrCodeBase64);
     const largura = temPix ? '278mm' : '229mm';
 
+    // Viewport compativel com DPI 96 do DomPDF (largura em pixels = pontos do papel)
+    await page.setViewport({ width: temPix ? 1050 : 865, height: 240, deviceScaleFactor: 1 });
+
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
     const pdf = await page.pdf({
       width: largura,
       height: '85mm',
       printBackground: true,
+      scale: 1,
+      preferCSSPageSize: false,
       margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
     });
 
