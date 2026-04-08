@@ -71,7 +71,11 @@ async function gerarPdfBoleto(dadosBoleto, dadosPix) {
 // Fecha o browser ao encerrar o processo
 async function fecharBrowser() {
   if (browser) {
-    try { await browser.close(); } catch (e) { /* ignore */ }
+    try {
+      await browser.close();
+    } catch (e) {
+      logger.error(`Erro ao fechar browser Puppeteer durante encerramento: ${e.message}`);
+    }
     browser = null;
   }
 }

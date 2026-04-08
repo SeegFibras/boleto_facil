@@ -157,7 +157,7 @@ function gerarHtmlTermica(dados, pix) {
         <span class="right">${numDocumento}</span>
       </td>
       <td>
-        <label>Especie Doc.</label>
+        <label>Esp&eacute;cie Doc.</label>
         <span class="right">${especieDoc}</span>
       </td>
       <td>
