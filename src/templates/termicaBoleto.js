@@ -38,7 +38,7 @@ function gerarHtmlTermica(dados, pix) {
   const endereco = escapeHtml(dados.Endereco || '');
   const cep = escapeHtml(dados.CEP || '');
   const cidade = escapeHtml(dados.Cidade || '');
-  const uf = escapeHtml(dados.Estado_sigla || '');
+  const estado = escapeHtml(dados.Estado || '');
   const numDocumento = escapeHtml(dados.numero_documento || '');
   const nossoNumero = escapeHtml(dados.nosso_numero || '');
   const vencimento = escapeHtml(dados.data_vencimento || '');
@@ -64,19 +64,21 @@ function gerarHtmlTermica(dados, pix) {
   // Codigo de barras
   const barcodeBase64 = gerarCodigoBarras(dados.codigo_barras);
 
-  // Endereco completo do pagador
-  const enderecoCompleto = [endereco, cidade ? `${cidade}${uf ? '/' + uf : ''}` : '', cep ? `CEP: ${cep}` : '']
-    .filter(Boolean).join(' - ');
+  // Endereco completo do pagador (formato do sistema antigo)
+  const enderecoCompleto = `${endereco} - Cidade: ${cidade}, CEP: ${cep}, UF: ${estado}`;
 
   // Largura da tabela e coluna PIX
   const temPix = pix && pix.qrCodeBase64;
   const larguraTabela = temPix ? '1050px' : '865px';
+  const colspanTotal = temPix ? 7 : 6;
 
   // QR Code PIX celula (rowspan na coluna direita)
   const pixRowspan = temPix ? `
-    <td rowspan="10" style="width:200px; text-align:center; vertical-align:middle; padding:5px;">
-      <strong style="font-size:11px;">PAGUE COM PIX</strong><br>
-      <img src="${pix.qrCodeBase64}" width="180" height="180" style="margin:3px 0;">
+    <td rowspan="10" style="width:220px; text-align:center; vertical-align:middle; padding:5px; position:relative;">
+      <div style="width:220px; height:220px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <strong style="font-size:11px;">Pague com Pix:</strong>
+        <img src="${pix.qrCodeBase64}" width="180" height="180" style="margin:3px 0;">
+      </div>
     </td>` : '';
 
   return `<!DOCTYPE html>
@@ -122,24 +124,24 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>Vencimento</label>
-        <span>${vencimento}</span>
+        <span class="right">${vencimento}</span>
       </td>
       ${pixRowspan}
     </tr>
 
-    <!-- Linha: Beneficiario | CNPJ | Agencia/Codigo -->
+    <!-- Linha: Beneficiario | CPF/CNPJ | Agencia/Codigo -->
     <tr>
       <td colspan="4">
         <label>Benefici&aacute;rio</label>
         <span>${cedente}</span>
       </td>
       <td>
-        <label>CNPJ</label>
+        <label>CPF/CNPJ Benefici&aacute;rio</label>
         <span style="font-size:10px;">25.452.912/0001-25</span>
       </td>
       <td>
         <label>Ag&ecirc;ncia/C&oacute;digo Benefici&aacute;rio</label>
-        <span>${agenciaCodigo}</span>
+        <span class="right">${agenciaCodigo}</span>
       </td>
     </tr>
 
@@ -167,11 +169,11 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>Nosso N&uacute;mero</label>
-        <span>${nossoNumero}</span>
+        <span class="right">${nossoNumero}</span>
       </td>
     </tr>
 
-    <!-- Linha: Uso banco | Carteira | Moeda | Qtd moeda | Valor | Valor documento -->
+    <!-- Linha: Uso banco | Carteira | Especie Moeda | Qtd moeda | Valor | Valor documento -->
     <tr>
       <td>
         <label>Uso do Banco</label>
@@ -182,31 +184,31 @@ function gerarHtmlTermica(dados, pix) {
         <span>${carteira}</span>
       </td>
       <td>
-        <label>Moeda</label>
+        <label>Esp&eacute;cie Moeda</label>
         <span>${especie}</span>
       </td>
       <td>
-        <label>Quantidade</label>
+        <label>Quant. Moeda</label>
         <span>&nbsp;</span>
       </td>
       <td>
-        <label>Valor</label>
+        <label>(X) Valor</label>
         <span>&nbsp;</span>
       </td>
       <td>
         <label>(=) Valor do Documento</label>
-        <span style="font-size:13px;">R$ ${valor}</span>
+        <span class="right" style="font-size:13px;">${valor}</span>
       </td>
     </tr>
 
     <!-- Linha: Instrucoes (rowspan 5) | Desconto -->
     <tr>
       <td colspan="5" rowspan="5" style="vertical-align:top;">
-        <label>Instru&ccedil;&otilde;es (Texto de responsabilidade do benefici&aacute;rio)</label>
+        <label>Instru&ccedil;&otilde;es de responsabilidade do BENEFICI&Aacute;RIO. Qualquer d&uacute;vida sobre este boleto contate o benefici&aacute;rio</label>
         ${instrucoes.map(i => `<p>${i}</p>`).join('\n        ')}
       </td>
       <td>
-        <label>(-) Desconto/Abatimento</label>
+        <label>(-)Desconto</label>
         <span>&nbsp;</span>
       </td>
     </tr>
@@ -214,7 +216,7 @@ function gerarHtmlTermica(dados, pix) {
     <!-- Deducoes -->
     <tr>
       <td>
-        <label>(-) Outras Dedu&ccedil;&otilde;es</label>
+        <label>(-)Outras Dedu&ccedil;&otilde;es/Abatimentos</label>
         <span>&nbsp;</span>
       </td>
     </tr>
@@ -222,7 +224,7 @@ function gerarHtmlTermica(dados, pix) {
     <!-- Mora/Multa -->
     <tr>
       <td>
-        <label>(+) Mora/Multa</label>
+        <label>(+)Mora/Multa/Juros</label>
         <span>&nbsp;</span>
       </td>
     </tr>
@@ -230,7 +232,7 @@ function gerarHtmlTermica(dados, pix) {
     <!-- Acrescimos -->
     <tr>
       <td>
-        <label>(+) Outros Acr&eacute;scimos</label>
+        <label>(+)Outros Acr&eacute;scimos</label>
         <span>&nbsp;</span>
       </td>
     </tr>
@@ -238,25 +240,18 @@ function gerarHtmlTermica(dados, pix) {
     <!-- Valor cobrado -->
     <tr>
       <td>
-        <label>(=) Valor Cobrado</label>
+        <label>(=)Valor cobrado</label>
         <span>&nbsp;</span>
       </td>
     </tr>
 
-    <!-- Pagador -->
+    <!-- Pagador + Sacador/Avalista (mesma celula como no sistema antigo) -->
     <tr>
-      <td colspan="${temPix ? '7' : '6'}">
+      <td colspan="${colspanTotal}">
         <label>Pagador</label>
         <span>${nome} - ${cpf}</span>
         <p style="font-size:10px;">${enderecoCompleto}</p>
-      </td>
-    </tr>
-
-    <!-- Sacador/Avalista -->
-    <tr>
-      <td colspan="${temPix ? '7' : '6'}">
-        <label>Sacador/Avalista</label>
-        <span style="font-size:10px;">${sacadorRazao}</span>
+        <p style="font-size:10px;"><strong>Sacador/Avalista:</strong> ${sacadorRazao}</p>
       </td>
     </tr>
   </table>

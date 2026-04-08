@@ -330,20 +330,6 @@ async function obterDadosBoleto(idBoleto) {
     const dados = Array.isArray(response.data) ? response.data[0] : response.data;
     if (!dados) throw new Error('Nenhum dado retornado para o boleto.');
 
-    // Limpa campo sacado: "17444 - Nome" → "Nome"
-    if (dados.sacado && dados.sacado.includes(' - ')) {
-      dados.sacado = dados.sacado.split(' - ').slice(1).join(' - ').trim();
-    }
-
-    // Limpa endereço: remove "Apto nan", "BL: nan", etc.
-    if (dados.Endereco) {
-      dados.Endereco = dados.Endereco
-        .replace(/,?\s*Apto\s+nan\b/gi, '')
-        .replace(/\s*-\s*BL:\s*nan\b/gi, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-    }
-
     return dados;
   } catch (error) {
     logger.error(`Erro ao obter dados do boleto ${idBoleto}: ${error.message}`);
