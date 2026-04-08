@@ -86,4 +86,7 @@ async function fecharBrowser() {
   }
 }
 
-process.on('SIGTERM',
+process.on('SIGTERM', fecharBrowser);
+process.on('SIGINT', fecharBrowser);
+
+module.exports = { gerarPdfBoleto };
