@@ -1,4 +1,4 @@
-// Gerador de HTML para boleto termico — layout horizontal (278mm x 85mm)
+// Gerador de HTML para boleto termico — layout horizontal
 // Replica o layout do sistema antigo (boleto.blade.php / DomPDF)
 // Recebe dados do get_boleto (tipo_boleto: 'dados') e dados do get_pix
 
@@ -72,7 +72,7 @@ function gerarHtmlTermica(dados, pix) {
   const temPix = pix && pix.qrCodeBase64;
   const larguraTabela = temPix ? '1050px' : '865px';
 
-  // QR Code PIX celula (rowspan na coluna direita — layout identico ao Six Startup)
+  // QR Code PIX celula (rowspan na coluna direita)
   const pixRowspan = temPix ? `
     <td rowspan="10" style="width:200px; height: 1px; padding: 1px; overflow: hidden;">
       <div style="position: absolute; width: 220px; height: 220px; padding: 2px; overflow: hidden">
@@ -105,12 +105,12 @@ function gerarHtmlTermica(dados, pix) {
   <table style="width:${larguraTabela}; margin: 0;">
     <tr>
       <td style="width:50px;">
-        <span style="font-size:15px; border-right:1px solid #000; padding:0 10px;">
+        <span style="font-size:15px; vertical-align: middle; border-right:1px solid #000; padding:0 10px;">
           ${codigoBanco}
         </span>
       </td>
       <td>
-        <span style="font-size:14px; letter-spacing:1px;">${linhaDigitavel}</span>
+        <span style="font-size:14px; vertical-align: middle;">${linhaDigitavel}</span>
       </td>
     </tr>
   </table>
@@ -121,7 +121,7 @@ function gerarHtmlTermica(dados, pix) {
     <tr>
       <td colspan="5">
         <label>Local de Pagamento</label>
-        <span style="font-size:10px;">${localPagamento}</span>
+        <span>${localPagamento}</span>
       </td>
       <td style="width: 200px;">
         <label>Vencimento</label>
@@ -136,9 +136,9 @@ function gerarHtmlTermica(dados, pix) {
         <label>Benefici&aacute;rio</label>
         <span>${cedente}</span>
       </td>
-      <td>
+      <td style="width: 200px">
         <label>CPF/CNPJ Benefici&aacute;rio</label>
-        <span style="font-size:10px;">25.452.912/0001-25</span>
+        <span>25.452.912/0001-25</span>
       </td>
       <td>
         <label>Ag&ecirc;ncia/C&oacute;digo Benefici&aacute;rio</label>
@@ -149,15 +149,15 @@ function gerarHtmlTermica(dados, pix) {
     <!-- Linha: Data doc | Num doc | Especie doc | Aceite | Data proc | Nosso numero -->
     <tr>
       <td>
-        <label>Data Documento</label>
+        <label> Data Doc.</label>
         <span class="right">${dataDocumento}</span>
       </td>
       <td>
-        <label>N&ordm; Documento</label>
+        <label>N&uacute;mero Doc.</label>
         <span class="right">${numDocumento}</span>
       </td>
       <td>
-        <label>Esp&eacute;cie Doc.</label>
+        <label>Especie Doc.</label>
         <span class="right">${especieDoc}</span>
       </td>
       <td>
@@ -166,7 +166,7 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>Data Processamento</label>
-        <span>${dataProcessamento}</span>
+        <span class="right">${dataProcessamento}</span>
       </td>
       <td>
         <label>Nosso N&uacute;mero</label>
@@ -178,7 +178,6 @@ function gerarHtmlTermica(dados, pix) {
     <tr>
       <td>
         <label>Uso do Banco</label>
-        <span>&nbsp;</span>
       </td>
       <td>
         <label>Carteira</label>
@@ -186,15 +185,13 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>Esp&eacute;cie Moeda</label>
-        <span>${especie}</span>
+        <span class="right">${especie}</span>
       </td>
       <td>
         <label>Quant. Moeda</label>
-        <span>&nbsp;</span>
       </td>
       <td>
         <label>(X) Valor</label>
-        <span>&nbsp;</span>
       </td>
       <td>
         <label>(=) Valor do Documento</label>
@@ -204,14 +201,13 @@ function gerarHtmlTermica(dados, pix) {
 
     <!-- Linha: Instrucoes (rowspan 5) | Desconto -->
     <tr>
-      <td colspan="5" rowspan="5" style="vertical-align:top;">
+      <td colspan="5" rowspan="5">
         <label>Instru&ccedil;&otilde;es de responsabilidade do BENEFICI&Aacute;RIO. Qualquer d&uacute;vida sobre este boleto contate o benefici&aacute;rio</label>
-        ${instrucoes.map(i => `<p>${i}</p>`).join('\n        ')}
+        ${instrucoes.map(i => `<p class="bold">${i}</p>`).join('\n        ')}
         ${obs ? `<p class="obs">${obs}</p>` : ''}
       </td>
       <td>
         <label>(-)Desconto</label>
-        <span>&nbsp;</span>
       </td>
     </tr>
 
@@ -219,7 +215,6 @@ function gerarHtmlTermica(dados, pix) {
     <tr>
       <td>
         <label>(-)Outras Dedu&ccedil;&otilde;es/Abatimentos</label>
-        <span>&nbsp;</span>
       </td>
     </tr>
 
@@ -227,7 +222,6 @@ function gerarHtmlTermica(dados, pix) {
     <tr>
       <td>
         <label>(+)Mora/Multa/Juros</label>
-        <span>&nbsp;</span>
       </td>
     </tr>
 
@@ -235,7 +229,6 @@ function gerarHtmlTermica(dados, pix) {
     <tr>
       <td>
         <label>(+)Outros Acr&eacute;scimos</label>
-        <span>&nbsp;</span>
       </td>
     </tr>
 
@@ -243,16 +236,21 @@ function gerarHtmlTermica(dados, pix) {
     <tr>
       <td>
         <label>(=)Valor cobrado</label>
-        <span>&nbsp;</span>
       </td>
     </tr>
 
-    <!-- Pagador + Sacador/Avalista (mesma celula como no sistema antigo) -->
+    <!-- Pagador + Sacador/Avalista -->
     <tr>
       <td colspan="6">
         <label>Pagador</label>
-        <span>${nome} - ${cpf}</span>
-        <p style="font-size:10px; margin-left: 37px;">${enderecoCompleto}</p>
+        <span class="bold">
+          ${nome}
+          -
+          ${cpf}
+        </span>
+        <p style="font-size: 11px; margin-left: 37px;">
+          ${enderecoCompleto}
+        </p>
         <label class="bold">Sacador/ Avalista:</label>
         <span>${sacadorRazao}</span>
       </td>
@@ -260,11 +258,10 @@ function gerarHtmlTermica(dados, pix) {
   </table>
 
   <!-- Codigo de barras -->
-  ${barcodeBase64 ? `
   <p style="margin-left: 5px; display: flex;">
-    <img width="500px" src="${barcodeBase64}">
+    ${barcodeBase64 ? `<img width="500px" src="${barcodeBase64}" alt="barcode"/>` : ''}
   </p>
-  ` : ''}
+
 </body>
 </html>`;
 }
