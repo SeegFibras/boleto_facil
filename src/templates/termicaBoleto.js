@@ -251,19 +251,4 @@ function gerarHtmlTermica(dados, pix) {
         <label>Pagador</label>
         <span>${nome} - ${cpf}</span>
         <p style="font-size:10px;">${enderecoCompleto}</p>
-        <p style="font-size:10px;"><strong>Sacador/Avalista:</strong> ${sacadorRazao}</p>
-      </td>
-    </tr>
-  </table>
-
-  <!-- Codigo de barras -->
-  ${barcodeBase64 ? `
-  <div style="margin-top:3px;">
-    <img src="${barcodeBase64}" width="500" style="display:block;">
-  </div>
-  ` : ''}
-</body>
-</html>`;
-}
-
-module.exports = { gerarHtmlTermica };
+        <p style="font-size:10px;"><strong>Sacador/Avalista:</strong> ${
