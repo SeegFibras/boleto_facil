@@ -24,7 +24,7 @@ async function getBrowser() {
   return browser;
 }
 
-async function gerarPdfBoleto(dadosBoleto, dadosPix, tipo = 'gateway') {
+async function gerarPdfBoleto(dadosBoleto, dadosPix, tipo = 'gateway', endereco = '') {
   const idBoleto = (dadosBoleto && (dadosBoleto.numero_documento || dadosBoleto.id_receber)) || 'desconhecido';
   let page = null;
 
@@ -35,9 +35,9 @@ async function gerarPdfBoleto(dadosBoleto, dadosPix, tipo = 'gateway') {
       const dadosCliente = dadosBoleto
         ? { nome: dadosBoleto.sacado, cpf: dadosBoleto.CPF }
         : { nome: '', cpf: '' };
-      html = gerarHtmlPixPuro(dadosPix, dadosCliente);
+      html = gerarHtmlPixPuro(dadosPix, dadosCliente, endereco);
     } else {
-      html = gerarHtmlBoletoGateway(dadosBoleto, dadosPix);
+      html = gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco);
     }
 
     const b = await getBrowser();

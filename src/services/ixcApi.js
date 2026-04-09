@@ -395,6 +395,73 @@ async function obterPix(idBoleto) {
   }
 }
 
+// Busca endereço do contrato/cliente para impressão térmica
+// Retorna null em caso de erro (impressão segue sem endereço)
+async function buscarEnderecoParaImpressao(idBoleto) {
+  try {
+    // Busca boleto para obter id_contrato e id_cliente
+    const dataBoleto = {
+      qtype: 'fn_areceber.id',
+      query: String(idBoleto),
+      oper: '=',
+      page: '1',
+      rp: '1'
+    };
+    const resultBoleto = await apiRequest('fn_areceber', dataBoleto);
+    if (!resultBoleto.registros || resultBoleto.total === '0' || resultBoleto.total === 0) {
+      return null;
+    }
+    const boleto = resultBoleto.registros[0];
+    const idContrato = boleto.id_contrato;
+    const idCliente = boleto.id_cliente;
+
+    // Busca contrato
+    const dataContrato = {
+      qtype: 'cliente_contrato.id',
+      query: String(idContrato),
+      oper: '=',
+      page: '1',
+      rp: '1'
+    };
+    const resultContrato = await apiRequest('cliente_contrato', dataContrato);
+    if (!resultContrato.registros || resultContrato.total === '0' || resultContrato.total === 0) {
+      return null;
+    }
+    const contrato = resultContrato.registros[0];
+
+    // Resolve endereço (padrão cliente ou contrato)
+    let enderecoObj;
+    if (contrato.endereco_padrao_cliente === 'S') {
+      enderecoObj = await buscarEnderecoCliente(idCliente);
+      if (!enderecoObj) return null;
+    } else {
+      enderecoObj = {
+        endereco: contrato.endereco,
+        numero: contrato.numero,
+        bairro: contrato.bairro,
+        cidade: contrato.cidade,
+        cep: contrato.cep,
+        complemento: contrato.complemento
+      };
+    }
+
+    // Resolve nome da cidade
+    const nomeCidade = await buscarNomeCidade(enderecoObj.cidade);
+
+    return {
+      endereco: enderecoObj.endereco,
+      numero: enderecoObj.numero,
+      complemento: enderecoObj.complemento,
+      bairro: enderecoObj.bairro,
+      cidade: nomeCidade || enderecoObj.cidade,
+      cep: enderecoObj.cep
+    };
+  } catch (error) {
+    logger.warn(`Erro ao buscar endereco para impressao do boleto ${idBoleto}: ${error.message}`);
+    return null;
+  }
+}
+
 // Testa conexão com a API
 async function testarConexao() {
   try {
@@ -422,5 +489,6 @@ module.exports = {
   obterPdfBoleto,
   obterDadosBoleto,
   obterPix,
+  buscarEnderecoParaImpressao,
   testarConexao
 };

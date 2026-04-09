@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
-const { buscarCliente, buscarContratos, buscarBoletos, obterPdfBoleto, obterDadosBoleto, obterPix } = require('../services/ixcApi');
+const { buscarCliente, buscarContratos, buscarBoletos, obterPdfBoleto, obterDadosBoleto, obterPix, buscarEnderecoParaImpressao } = require('../services/ixcApi');
 const { gerarHtmlBoletoGateway, gerarHtmlPixPuro } = require('../templates/termicaBoleto');
 const { gerarPdfBoleto } = require('../services/pdfGenerator');
 const { validar, mascarar } = require('../utils/cpfCnpj');
@@ -11,6 +11,14 @@ const { registrarConsulta } = require('../config/database');
 const { apiLimiter } = require('../middleware/rateLimit');
 const { sanitizeCpfCnpj } = require('../middleware/sanitize');
 const logger = require('../utils/logger');
+
+function formatarEndereco(end) {
+  if (!end) return '';
+  const partes = [end.endereco, end.numero, end.complemento, end.bairro, end.cidade].filter(Boolean);
+  let str = partes.join(', ');
+  if (end.cep) str += ' - CEP: ' + end.cep;
+  return str;
+}
 
 // Consulta boletos por CPF/CNPJ
 router.post('/consultar', apiLimiter, sanitizeCpfCnpj, async (req, res) => {
@@ -114,10 +122,15 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
   }
 
   try {
-    const [dadosResult, pixResult] = await Promise.allSettled([
+    const [dadosResult, pixResult, enderecoResult] = await Promise.allSettled([
       obterDadosBoleto(id),
-      obterPix(id)
+      obterPix(id),
+      buscarEnderecoParaImpressao(id)
     ]);
+
+    const enderecoStr = enderecoResult.status === 'fulfilled' && enderecoResult.value
+      ? formatarEndereco(enderecoResult.value)
+      : '';
 
     let html;
     if (tipo === 'pix') {
@@ -127,7 +140,7 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
       const dadosCliente = dadosResult.status === 'fulfilled'
         ? { nome: dadosResult.value.sacado, cpf: dadosResult.value.CPF }
         : { nome: '', cpf: '' };
-      html = gerarHtmlPixPuro(pixResult.value, dadosCliente);
+      html = gerarHtmlPixPuro(pixResult.value, dadosCliente, enderecoStr);
     } else {
       if (dadosResult.status === 'rejected') {
         logger.error(`Erro ao obter dados do boleto ${id}: ${dadosResult.reason?.message}`);
@@ -135,7 +148,7 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
       }
       const dados = dadosResult.value;
       const pix = pixResult.status === 'fulfilled' ? pixResult.value : null;
-      html = gerarHtmlBoletoGateway(dados, pix);
+      html = gerarHtmlBoletoGateway(dados, pix, enderecoStr);
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -161,17 +174,22 @@ router.get('/boleto/:id/termica-pdf', apiLimiter, async (req, res) => {
   }
 
   try {
-    const [dadosResult, pixResult] = await Promise.allSettled([
+    const [dadosResult, pixResult, enderecoResult] = await Promise.allSettled([
       obterDadosBoleto(id),
-      obterPix(id)
+      obterPix(id),
+      buscarEnderecoParaImpressao(id)
     ]);
+
+    const enderecoStr = enderecoResult.status === 'fulfilled' && enderecoResult.value
+      ? formatarEndereco(enderecoResult.value)
+      : '';
 
     if (tipo === 'pix') {
       if (pixResult.status === 'rejected' || !pixResult.value) {
         return res.status(500).json({ erro: 'PIX não disponível para este boleto.' });
       }
       const dados = dadosResult.status === 'fulfilled' ? dadosResult.value : null;
-      const pdfBuffer = await gerarPdfBoleto(dados, pixResult.value, 'pix');
+      const pdfBuffer = await gerarPdfBoleto(dados, pixResult.value, 'pix', enderecoStr);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename=pix-${id}.pdf`);
       return res.send(Buffer.from(pdfBuffer));
@@ -185,7 +203,7 @@ router.get('/boleto/:id/termica-pdf', apiLimiter, async (req, res) => {
 
     const dados = dadosResult.value;
     const pix = pixResult.status === 'fulfilled' ? pixResult.value : null;
-    const pdfBuffer = await gerarPdfBoleto(dados, pix, 'gateway');
+    const pdfBuffer = await gerarPdfBoleto(dados, pix, 'gateway', enderecoStr);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename=boleto-${id}.pdf`);

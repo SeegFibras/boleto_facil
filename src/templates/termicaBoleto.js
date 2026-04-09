@@ -69,17 +69,33 @@ function formatarValor(valor) {
 // ============================================================
 // Layout 1: Boleto Gateway (boleto + PIX) — 297mm x 80mm
 // ============================================================
-function gerarHtmlBoletoGateway(dadosBoleto, dadosPix) {
-  const nome = escapeHtml(dadosBoleto.sacado || '');
-  const cpf = escapeHtml(dadosBoleto.CPF || '');
-  const numDocumento = escapeHtml(dadosBoleto.numero_documento || '');
-  const nossoNumero = escapeHtml(dadosBoleto.nosso_numero || '');
-  const vencimento = escapeHtml(dadosBoleto.data_vencimento || '');
-  const valor = escapeHtml(dadosBoleto.valor_boleto || '');
+function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
+  // Extrai numero da fatura do solicitacaoPagador (ex: "Fatura 1045330" -> "1045330")
+  const numFaturaPix = dadosPix?.solicitacaoPagador
+    ? dadosPix.solicitacaoPagador.replace(/\D/g, '')
+    : '';
+
+  // Formata data de vencimento do Pix (YYYY-MM-DD -> DD/MM/YYYY)
+  let vencimentoPix = '';
+  if (dadosPix?.vencimento) {
+    const partes = dadosPix.vencimento.split('-');
+    if (partes.length === 3) {
+      vencimentoPix = `${partes[2]}/${partes[1]}/${partes[0]}`;
+    } else {
+      vencimentoPix = dadosPix.vencimento;
+    }
+  }
+
+  // Campos com fallback para dados do Pix quando o boleto vem vazio
+  const nome = escapeHtml(dadosBoleto.sacado || dadosPix?.devedor?.nome || '');
+  const cpf = escapeHtml(dadosBoleto.CPF || formatarCpf(dadosPix?.devedor?.cpf) || '');
+  const numDocumento = escapeHtml(dadosBoleto.numero_documento || numFaturaPix || '');
+  const nossoNumero = escapeHtml(dadosBoleto.nosso_numero || numFaturaPix || '');
+  const vencimento = escapeHtml(dadosBoleto.data_vencimento || vencimentoPix || '');
+  const valor = escapeHtml(dadosBoleto.valor_boleto || (dadosPix?.valor ? formatarValor(dadosPix.valor) : '') || '');
   const linhaDigitavel = escapeHtml(dadosBoleto.linha_digitavel || '');
   const codigoBanco = escapeHtml(dadosBoleto.codigo_banco_com_dv || '');
-  const agenciaCodigo = escapeHtml(dadosBoleto.agencia_codigo || '');
-  const cedente = escapeHtml(dadosBoleto.cedente_nome || '');
+  const cedente = escapeHtml(dadosBoleto.cedente_nome || 'SEEG FIBRAS TELECOMUNICAÇÕES LTDA');
   const linha1 = escapeHtml(dadosBoleto.linha1 || '');
   const linha2 = escapeHtml(dadosBoleto.linha2 || '');
   const linha3 = escapeHtml(dadosBoleto.linha3 || '');
@@ -161,13 +177,13 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix) {
           <span>${numDocumento}</span>
         </div>
         <div class="item">
-          <label>Ag&ecirc;ncia/C&oacute;digo</label>
-          <span>${agenciaCodigo}</span>
-        </div>
-        <div class="item">
           <label>Pagador</label>
           <span>${nome} - ${cpf}</span>
-        </div>
+        </div>${endereco ? `
+        <div class="item" style="grid-column: span 2;">
+          <label>Endere&ccedil;o</label>
+          <span>${endereco}</span>
+        </div>` : ''}
       </div>
 
       <div class="instrucoes">
@@ -200,7 +216,7 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix) {
 // ============================================================
 // Layout 2: PIX Puro (somente PIX) — 297mm x 80mm
 // ============================================================
-function gerarHtmlPixPuro(dadosPix, dadosCliente) {
+function gerarHtmlPixPuro(dadosPix, dadosCliente, endereco) {
   const nomePagador = escapeHtml(dadosPix.devedor?.nome || dadosCliente?.nome || '');
   const cpfPagador = escapeHtml(formatarCpf(dadosPix.devedor?.cpf || dadosCliente?.cpf || ''));
   const valorFormatado = formatarValor(dadosPix.valor);
@@ -274,7 +290,11 @@ function gerarHtmlPixPuro(dadosPix, dadosCliente) {
         <div class="dado">
           <label>CPF/CNPJ</label>
           <span>${cpfPagador}</span>
-        </div>
+        </div>${endereco ? `
+        <div class="dado">
+          <label>Endere&ccedil;o</label>
+          <span style="font-size: 7px;">${endereco}</span>
+        </div>` : ''}
         <div class="dado">
           <label>Vencimento</label>
           <span>${vencimento}</span>
