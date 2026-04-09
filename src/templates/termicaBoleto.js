@@ -140,7 +140,7 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td style="width: 200px">
         <label>CPF/CNPJ Benefici&aacute;rio</label>
-        <span>25.452.912/0001-25</span>
+        <br><span>25.452.912/0001-25</span>
       </td>
       <td>
         <label>Ag&ecirc;ncia/C&oacute;digo Benefici&aacute;rio</label>
@@ -172,7 +172,7 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>Nosso N&uacute;mero</label>
-        <span class="right">${nossoNumero}</span>
+        <br><span class="right">${nossoNumero}</span>
       </td>
     </tr>
 
@@ -183,7 +183,6 @@ function gerarHtmlTermica(dados, pix) {
       </td>
       <td>
         <label>Carteira</label>
-        <span>${carteira}</span>
       </td>
       <td>
         <label>Esp&eacute;cie Moeda</label>
