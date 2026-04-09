@@ -3,7 +3,7 @@
 // DomPDF usa [0, 0, 790, 240] pontos = ~278mm x 85mm
 // Puppeteer/Chromium renderiza ligeiramente maior, entao usamos altura extra
 const puppeteer = require('puppeteer');
-const { gerarHtmlTermica } = require('../templates/termicaBoleto');
+const { gerarHtmlBoletoGateway, gerarHtmlPixPuro } = require('../templates/termicaBoleto');
 const logger = require('../utils/logger');
 
 let browser = null;
@@ -24,45 +24,42 @@ async function getBrowser() {
   return browser;
 }
 
-async function gerarPdfBoleto(dadosBoleto, dadosPix) {
-  const idBoleto = dadosBoleto.numero_documento || dadosBoleto.id_receber || 'desconhecido';
+async function gerarPdfBoleto(dadosBoleto, dadosPix, tipo = 'gateway') {
+  const idBoleto = (dadosBoleto && (dadosBoleto.numero_documento || dadosBoleto.id_receber)) || 'desconhecido';
   let page = null;
 
   try {
-    const html = gerarHtmlTermica(dadosBoleto, dadosPix);
+    // Seleciona template baseado no tipo
+    let html;
+    if (tipo === 'pix') {
+      const dadosCliente = dadosBoleto
+        ? { nome: dadosBoleto.sacado, cpf: dadosBoleto.CPF }
+        : { nome: '', cpf: '' };
+      html = gerarHtmlPixPuro(dadosPix, dadosCliente);
+    } else {
+      html = gerarHtmlBoletoGateway(dadosBoleto, dadosPix);
+    }
+
     const b = await getBrowser();
     page = await b.newPage();
 
-    // Tamanho customizado:
-    // DomPDF [0, 0, 790, 240] pontos => 790/72*25.4 = ~278mm largura, 240/72*25.4 = ~85mm altura
-    // Chromium precisa de mais altura (~120mm) para conter pagador + codigo de barras
-    const temPix = !!(dadosPix && dadosPix.qrCodeBase64);
-    const larguraMm = temPix ? 278 : 229;
-    const alturaMm = 155; // Maior que os 85mm do DomPDF para caber tudo no Chromium
+    // Dimensoes fixas: 297mm x 80mm (A4 paisagem, 80mm altura)
+    const viewportWidth = 1122; // 297mm a 96dpi
 
-    // Viewport deve corresponder a largura em pixels (DPI 96: 1pt ≈ 1.333px)
-    const viewportWidth = temPix ? 1050 : 865;
-
-    await page.setViewport({ width: viewportWidth, height: 600, deviceScaleFactor: 1 });
+    await page.setViewport({ width: viewportWidth, height: 302, deviceScaleFactor: 1 });
 
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    // Mede a altura real do conteudo renderizado e converte px -> mm (96 DPI)
-    const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
-    const alturaDinamica = Math.ceil(bodyHeight * 25.4 / 96) + 5; // +5mm margem seguranca
-    const alturaFinal = Math.max(alturaMm, alturaDinamica);
-    logger.info(`Boleto ${idBoleto}: body=${bodyHeight}px -> ${alturaDinamica}mm, usando ${alturaFinal}mm`);
-
     const pdf = await page.pdf({
-      width: `${larguraMm}mm`,
-      height: `${alturaFinal}mm`,
+      width: '297mm',
+      height: '80mm',
       printBackground: true,
       scale: 1,
       preferCSSPageSize: false,
       margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
     });
 
-    logger.info(`PDF térmico gerado para boleto ${idBoleto} (${temPix ? 'com' : 'sem'} PIX, ${larguraMm}x${alturaMm}mm)`);
+    logger.info(`PDF térmico gerado para boleto ${idBoleto} (tipo: ${tipo}, 297x80mm)`);
     return pdf;
   } catch (error) {
     logger.error(`Erro ao gerar PDF térmico do boleto ${idBoleto}: ${error.message}`);

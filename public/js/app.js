@@ -110,7 +110,8 @@ const app = {
       const btnImprimir = e.target.closest('.btn-imprimir');
       if (btnImprimir) {
         const id = btnImprimir.dataset.boletoId;
-        if (id) this.imprimir(id);
+        const tipo = btnImprimir.dataset.boletoTipo || 'gateway';
+        if (id) this.imprimir(id, tipo);
         return;
       }
     });
@@ -256,7 +257,7 @@ const app = {
             <span class="boleto-status ${statusClass}">${statusText}</span>
           </div>
           ${boleto.temPdf ? `
-            <button type="button" class="btn-imprimir" data-boleto-id="${boleto.id}">
+            <button type="button" class="btn-imprimir" data-boleto-id="${boleto.id}" data-boleto-tipo="${boleto.tipoRecebimento === '5' ? 'pix' : 'gateway'}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
                 <rect x="6" y="14" width="12" height="8"/>
@@ -282,10 +283,10 @@ const app = {
   },
 
   // Imprimir boleto individual
-  async imprimir(id) {
+  async imprimir(id, tipo) {
     try {
       this.showToast('Preparando boleto...', 'success');
-      await Printer.imprimir(id);
+      await Printer.imprimir(id, tipo);
       this.showToast('Boleto enviado para impressão!', 'success');
     } catch (error) {
       this.showToast('Erro ao imprimir. Tente novamente.', 'error');

@@ -92,7 +92,8 @@ async function buscarCliente(cpfCnpj) {
     page: '1',
     rp: '20',
     sortname: 'cliente.id',
-    sortorder: 'desc'
+    sortorder: 'desc',
+    grid_param: JSON.stringify([{ TB: 'cliente.ativo', OP: '=', P: 'S' }])
   };
 
   const result = await apiRequest('cliente', data);
@@ -236,10 +237,13 @@ async function buscarBoletos(idCliente) {
     query: String(idCliente),
     oper: '=',
     page: '1',
-    rp: '50',
+    rp: '20',
     sortname: 'fn_areceber.data_vencimento',
     sortorder: 'asc',
-    grid_param: JSON.stringify([{ TB: 'fn_areceber.status', OP: '=', P: 'A' }])
+    grid_param: JSON.stringify([
+      { TB: 'fn_areceber.liberado', OP: '=', P: 'S' },
+      { TB: 'fn_areceber.status', OP: 'L', P1: 'P', P2: 'A' }
+    ])
   };
 
   const result = await apiRequest('fn_areceber', data);
@@ -257,7 +261,8 @@ async function buscarBoletos(idCliente) {
     status: b.status,
     nossoNumero: b.nosso_numero,
     linhaDigitavel: b.linha_digitavel,
-    gatewayLink: b.gateway_link
+    gatewayLink: b.gateway_link,
+    tipoRecebimento: b.tipo_recebimento || ''
   }));
 }
 
@@ -374,7 +379,15 @@ async function obterPix(idBoleto) {
     return {
       qrCodeBase64,
       qrCodeText: qrCode.qrcode || '',
-      valor: data.pix.dadosPix?.valor?.original || ''
+      pixCopiaECola: data.pix.dadosPix?.pixCopiaECola || qrCode.qrcode || '',
+      valor: data.pix.dadosPix?.valor?.original || '',
+      vencimento: data.pix.dadosPix?.calendario?.dataDeVencimento || '',
+      expiracaoPix: data.pix.dadosPix?.expiracaoPix || '',
+      devedor: {
+        nome: data.pix.dadosPix?.devedor?.nome || '',
+        cpf: data.pix.dadosPix?.devedor?.cpf || ''
+      },
+      solicitacaoPagador: data.pix.dadosPix?.solicitacaoPagador || ''
     };
   } catch (error) {
     logger.warn(`Erro ao obter PIX do boleto ${idBoleto}: ${error.message}`);

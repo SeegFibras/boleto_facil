@@ -4,7 +4,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { buscarCliente, buscarContratos, buscarBoletos, obterPdfBoleto, obterDadosBoleto, obterPix } = require('../services/ixcApi');
-const { gerarHtmlTermica } = require('../templates/termicaBoleto');
+const { gerarHtmlBoletoGateway, gerarHtmlPixPuro } = require('../templates/termicaBoleto');
 const { gerarPdfBoleto } = require('../services/pdfGenerator');
 const { validar, mascarar } = require('../utils/cpfCnpj');
 const { registrarConsulta } = require('../config/database');
@@ -69,7 +69,8 @@ router.post('/consultar', apiLimiter, sanitizeCpfCnpj, async (req, res) => {
           dataVencimento: b.dataVencimento,
           linhaDigitavel: b.linhaDigitavel,
           temPdf: !!(b.gatewayLink || b.id),
-          endereco
+          endereco,
+          tipoRecebimento: b.tipoRecebimento
         };
       })
     });
@@ -98,12 +99,18 @@ router.get('/boleto/:id/pdf', apiLimiter, async (req, res) => {
   }
 });
 
-// Obtém boleto em formato térmico (HTML 80mm)
+// Obtém boleto em formato térmico (HTML 297mm x 80mm)
+// Query param: ?tipo=gateway (boleto+pix) ou ?tipo=pix (somente pix)
 router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
   const { id } = req.params;
+  const tipo = req.query.tipo || 'gateway';
 
   if (!/^\d+$/.test(id)) {
     return res.status(400).json({ erro: 'ID de boleto inválido.' });
+  }
+
+  if (!['gateway', 'pix'].includes(tipo)) {
+    return res.status(400).json({ erro: 'Tipo inválido. Use gateway ou pix.' });
   }
 
   try {
@@ -112,15 +119,25 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
       obterPix(id)
     ]);
 
-    if (dadosResult.status === 'rejected') {
-      logger.error(`Erro ao obter dados do boleto ${id}: ${dadosResult.reason?.message}`);
-      return res.status(500).json({ erro: 'Não foi possível obter os dados do boleto.' });
+    let html;
+    if (tipo === 'pix') {
+      if (pixResult.status === 'rejected' || !pixResult.value) {
+        return res.status(500).json({ erro: 'PIX não disponível para este boleto.' });
+      }
+      const dadosCliente = dadosResult.status === 'fulfilled'
+        ? { nome: dadosResult.value.sacado, cpf: dadosResult.value.CPF }
+        : { nome: '', cpf: '' };
+      html = gerarHtmlPixPuro(pixResult.value, dadosCliente);
+    } else {
+      if (dadosResult.status === 'rejected') {
+        logger.error(`Erro ao obter dados do boleto ${id}: ${dadosResult.reason?.message}`);
+        return res.status(500).json({ erro: 'Não foi possível obter os dados do boleto.' });
+      }
+      const dados = dadosResult.value;
+      const pix = pixResult.status === 'fulfilled' ? pixResult.value : null;
+      html = gerarHtmlBoletoGateway(dados, pix);
     }
 
-    const dados = dadosResult.value;
-    const pix = pixResult.status === 'fulfilled' ? pixResult.value : null;
-
-    const html = gerarHtmlTermica(dados, pix);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (error) {
@@ -129,12 +146,18 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
   }
 });
 
-// Gera PDF do boleto com tamanho customizado para impressora térmica (via Puppeteer)
+// Gera PDF do boleto com tamanho 297mm x 80mm (via Puppeteer)
+// Query param: ?tipo=gateway (boleto+pix) ou ?tipo=pix (somente pix)
 router.get('/boleto/:id/termica-pdf', apiLimiter, async (req, res) => {
   const { id } = req.params;
+  const tipo = req.query.tipo || 'gateway';
 
   if (!/^\d+$/.test(id)) {
     return res.status(400).json({ erro: 'ID de boleto inválido.' });
+  }
+
+  if (!['gateway', 'pix'].includes(tipo)) {
+    return res.status(400).json({ erro: 'Tipo inválido. Use gateway ou pix.' });
   }
 
   try {
@@ -143,6 +166,18 @@ router.get('/boleto/:id/termica-pdf', apiLimiter, async (req, res) => {
       obterPix(id)
     ]);
 
+    if (tipo === 'pix') {
+      if (pixResult.status === 'rejected' || !pixResult.value) {
+        return res.status(500).json({ erro: 'PIX não disponível para este boleto.' });
+      }
+      const dados = dadosResult.status === 'fulfilled' ? dadosResult.value : null;
+      const pdfBuffer = await gerarPdfBoleto(dados, pixResult.value, 'pix');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename=pix-${id}.pdf`);
+      return res.send(Buffer.from(pdfBuffer));
+    }
+
+    // tipo === 'gateway'
     if (dadosResult.status === 'rejected') {
       logger.error(`Erro ao obter dados do boleto ${id}: ${dadosResult.reason?.message}`);
       return res.status(500).json({ erro: 'Não foi possível obter os dados do boleto.' });
@@ -150,8 +185,7 @@ router.get('/boleto/:id/termica-pdf', apiLimiter, async (req, res) => {
 
     const dados = dadosResult.value;
     const pix = pixResult.status === 'fulfilled' ? pixResult.value : null;
-
-    const pdfBuffer = await gerarPdfBoleto(dados, pix);
+    const pdfBuffer = await gerarPdfBoleto(dados, pix, 'gateway');
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename=boleto-${id}.pdf`);

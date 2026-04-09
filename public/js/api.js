@@ -16,8 +16,9 @@ const Api = {
     return data;
   },
 
-  getBoletoUrl(id) {
-    return `/api/boleto/${id}/termica-pdf`;
+  getBoletoUrl(id, tipo) {
+    const params = tipo ? `?tipo=${tipo}` : '';
+    return `/api/boleto/${id}/termica-pdf${params}`;
   },
 
   getBoletoPdfUrl(id) {

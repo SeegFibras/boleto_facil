@@ -1,7 +1,9 @@
-// Gerador de HTML para boleto termico — layout horizontal
-// Replica o layout do sistema antigo (boleto.blade.php / DomPDF)
+// Gerador de HTML para boleto termico — layout horizontal 297mm x 80mm
+// Dois layouts: Gateway (boleto + PIX) e PIX Puro (somente PIX)
 // Recebe dados do get_boleto (tipo_boleto: 'dados') e dados do get_pix
 
+const fs = require('fs');
+const path = require('path');
 const { createCanvas } = require('canvas');
 const JsBarcode = require('jsbarcode');
 
@@ -18,11 +20,11 @@ function escapeHtml(text) {
 function gerarCodigoBarras(codigoBarras) {
   if (!codigoBarras) return '';
   try {
-    const canvas = createCanvas(500, 50);
+    const canvas = createCanvas(500, 40);
     JsBarcode(canvas, codigoBarras, {
       format: 'ITF',
       width: 2,
-      height: 50,
+      height: 40,
       displayValue: false,
       margin: 0
     });
@@ -32,56 +34,61 @@ function gerarCodigoBarras(codigoBarras) {
   }
 }
 
-function gerarHtmlTermica(dados, pix) {
-  const nome = escapeHtml(dados.sacado || '');
-  const cpf = escapeHtml(dados.CPF || '');
-  const endereco = escapeHtml(dados.Endereco || '');
-  const cep = escapeHtml(dados.CEP || '');
-  const cidade = escapeHtml(dados.Cidade || '');
-  const estado = escapeHtml(dados.Estado || '');
-  const numDocumento = escapeHtml(dados.numero_documento || '');
-  const nossoNumero = escapeHtml(dados.nosso_numero || '');
-  const vencimento = escapeHtml(dados.data_vencimento || '');
-  const valor = escapeHtml(dados.valor_boleto || '');
-  const linhaDigitavel = escapeHtml(dados.linha_digitavel || '');
-  const localPagamento = escapeHtml(dados.local_pagamento || '');
-  const codigoBanco = escapeHtml(dados.codigo_banco_com_dv || '');
-  const agenciaCodigo = escapeHtml(dados.agencia_codigo || '');
-  const cedente = escapeHtml(dados.cedente_nome || '');
-  const sacadorRazao = escapeHtml(dados.sacador_razao || '');
-  const dataDocumento = escapeHtml(dados.data_documento || '');
-  const dataProcessamento = escapeHtml(dados.data_processamento || '');
-  const especieDoc = escapeHtml(dados.especie_doc || '');
-  const especie = escapeHtml(dados.especie || '');
-  const aceite = escapeHtml(dados.aceite || '');
-  const carteira = escapeHtml(dados.carteira || '');
+// Carrega logo como base64 para embedir no HTML
+let logoBase64 = '';
+try {
+  const logoPath = path.join(__dirname, '..', '..', 'logo_grupo_seeg.png');
+  if (fs.existsSync(logoPath)) {
+    logoBase64 = 'data:image/png;base64,' + fs.readFileSync(logoPath).toString('base64');
+  }
+} catch (e) {
+  // Logo nao disponivel, segue sem
+}
 
-  // Instrucoes (sempre mostra todas as linhas, igual ao DomPDF)
-  const linha1 = escapeHtml(dados.linha1 || '');
-  const linha2 = escapeHtml(dados.linha2 || '');
-  const linha3 = escapeHtml(dados.linha3 || '');
-  const instrucao1 = escapeHtml(dados.Instrucao1 || '');
-  const instrucao2 = escapeHtml(dados.Instrucao2 || '');
-  const obs = escapeHtml(dados.obs || '');
+// Formata CPF com mascara
+function formatarCpf(cpf) {
+  if (!cpf) return '';
+  const limpo = cpf.replace(/\D/g, '');
+  if (limpo.length === 11) {
+    return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }
+  if (limpo.length === 14) {
+    return limpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  }
+  return cpf;
+}
 
-  // Codigo de barras
-  const barcodeBase64 = gerarCodigoBarras(dados.codigo_barras);
+// Formata valor como R$ XX,XX
+function formatarValor(valor) {
+  if (!valor) return 'R$ 0,00';
+  const num = parseFloat(valor);
+  if (isNaN(num)) return `R$ ${valor}`;
+  return 'R$ ' + num.toFixed(2).replace('.', ',');
+}
 
-  // Endereco completo do pagador (formato identico ao DomPDF)
-  const enderecoCompleto = `${endereco} - Cidade: ${cidade}, CEP: ${cep}, UF: ${estado}`;
+// ============================================================
+// Layout 1: Boleto Gateway (boleto + PIX) — 297mm x 80mm
+// ============================================================
+function gerarHtmlBoletoGateway(dadosBoleto, dadosPix) {
+  const nome = escapeHtml(dadosBoleto.sacado || '');
+  const cpf = escapeHtml(dadosBoleto.CPF || '');
+  const numDocumento = escapeHtml(dadosBoleto.numero_documento || '');
+  const nossoNumero = escapeHtml(dadosBoleto.nosso_numero || '');
+  const vencimento = escapeHtml(dadosBoleto.data_vencimento || '');
+  const valor = escapeHtml(dadosBoleto.valor_boleto || '');
+  const linhaDigitavel = escapeHtml(dadosBoleto.linha_digitavel || '');
+  const codigoBanco = escapeHtml(dadosBoleto.codigo_banco_com_dv || '');
+  const agenciaCodigo = escapeHtml(dadosBoleto.agencia_codigo || '');
+  const cedente = escapeHtml(dadosBoleto.cedente_nome || '');
+  const linha1 = escapeHtml(dadosBoleto.linha1 || '');
+  const linha2 = escapeHtml(dadosBoleto.linha2 || '');
+  const linha3 = escapeHtml(dadosBoleto.linha3 || '');
+  const instrucao1 = escapeHtml(dadosBoleto.Instrucao1 || '');
+  const instrucao2 = escapeHtml(dadosBoleto.Instrucao2 || '');
 
-  // Largura da tabela e coluna PIX
-  const temPix = pix && pix.qrCodeBase64;
-  const larguraTabela = temPix ? '1050px' : '865px';
-
-  // QR Code PIX celula (rowspan na coluna direita)
-  const pixRowspan = temPix ? `
-    <td rowspan="10" style="width:200px; height: 1px; padding: 1px; overflow: hidden;">
-      <div style="position: absolute; width: 220px; height: 220px; padding: 2px; overflow: hidden">
-        Pague com Pix:
-        <img style="padding: 0; margin: 0; height: 220px" src="${pix.qrCodeBase64}">
-      </div>
-    </td>` : '';
+  const barcodeBase64 = gerarCodigoBarras(dadosBoleto.codigo_barras);
+  const temPix = dadosPix && dadosPix.qrCodeBase64;
+  const pixCopiaECola = temPix ? escapeHtml(dadosPix.pixCopiaECola || dadosPix.qrCodeText || '') : '';
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -89,186 +96,209 @@ function gerarHtmlTermica(dados, pix) {
   <meta charset="UTF-8">
   <title>Boleto - ${numDocumento}</title>
   <style>
-    body, html { margin: 0; padding: 0; font-family: Arial, Verdana, sans-serif; }
-    table, table tbody { margin: 0; padding: 0; border: 0; border-collapse: collapse; }
-    table.bordas td { border: 1px solid #000; border-collapse: collapse; }
-    td { padding: 1px 5px; vertical-align: top; }
-    label { font-size: 9px; }
-    span { font-size: 11px; font-weight: bold; }
-    p { margin: 0; padding: 2px; font-size: 11px; }
-    .bold { font-weight: bold; }
-    .right { float: right; }
-    .obs { font-style: italic; }
-    @media print { @page { margin: 0; padding: 0; } }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { font-family: Arial, Helvetica, sans-serif; font-size: 8px; }
+    @page { size: 297mm 80mm; margin: 0; }
+    @media print { body { margin: 0; } @page { size: 297mm 80mm; margin: 0; } }
+
+    .container { width: 297mm; height: 80mm; display: flex; overflow: hidden; }
+    .boleto-col { flex: 1; padding: 2mm 3mm; display: flex; flex-direction: column; }
+    .pix-col { width: 85mm; border-left: 1px dashed #666; padding: 2mm; display: flex; flex-direction: column; align-items: center; }
+
+    .linha-digitavel { font-size: 11px; font-weight: bold; letter-spacing: 0.5px; border-bottom: 1px solid #000; padding-bottom: 1mm; margin-bottom: 1mm; }
+    .banco-codigo { font-size: 13px; font-weight: bold; border-right: 2px solid #000; padding-right: 3mm; margin-right: 3mm; display: inline-block; }
+
+    .dados-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5mm; font-size: 7.5px; margin-bottom: 1mm; }
+    .dados-grid .item { border: 0.5px solid #ccc; padding: 0.5mm 1mm; }
+    .dados-grid .item label { display: block; font-size: 6px; color: #555; text-transform: uppercase; }
+    .dados-grid .item span { font-size: 8px; font-weight: bold; }
+
+    .instrucoes { font-size: 7px; line-height: 1.3; margin-bottom: 1mm; flex-shrink: 1; overflow: hidden; }
+    .instrucoes p { margin: 0; font-weight: bold; }
+
+    .pagador { font-size: 7.5px; margin-bottom: 1mm; }
+    .pagador strong { font-size: 8px; }
+
+    .barcode { margin-top: auto; }
+    .barcode img { width: 100%; max-height: 28px; }
+
+    .pix-titulo { font-size: 9px; font-weight: bold; margin-bottom: 1mm; color: #333; }
+    .pix-qr img { width: 55mm; height: 55mm; }
+    .pix-copiacola { font-size: 5.5px; word-break: break-all; text-align: center; margin-top: 1mm; line-height: 1.2; color: #333; max-height: 12mm; overflow: hidden; }
   </style>
 </head>
 <body>
-  <!-- Linha 1: Codigo banco + Linha digitavel -->
-  <table style="width:${larguraTabela}; margin: 0;">
-    <tr>
-      <td style="width:50px;">
-        <span style="font-size:15px; vertical-align: middle; border-right:1px solid #000; padding:0 10px;">
-          ${codigoBanco}
-        </span>
-      </td>
-      <td>
-        <span style="font-size:14px; vertical-align: middle;">${linhaDigitavel}</span>
-      </td>
-    </tr>
-  </table>
+  <div class="container">
+    <div class="boleto-col">
+      <div class="linha-digitavel">
+        <span class="banco-codigo">${codigoBanco}</span>
+        ${linhaDigitavel}
+      </div>
 
-  <!-- Tabela principal -->
-  <table class="bordas" style="width:${larguraTabela};">
-    <!-- Linha: Local pagamento | Vencimento | PIX -->
-    <tr>
-      <td colspan="5">
-        <label>Local de pagamento</label>
-        <span>${localPagamento}</span>
-      </td>
-      <td style="width: 200px;">
-        <label>Vencimento</label>
-        <span class="right">${vencimento}</span>
-      </td>
-      ${pixRowspan}
-    </tr>
+      <div class="dados-grid">
+        <div class="item">
+          <label>Benefici&aacute;rio</label>
+          <span>${cedente}</span>
+        </div>
+        <div class="item">
+          <label>CNPJ Benefici&aacute;rio</label>
+          <span>25.452.912/0001-25</span>
+        </div>
+        <div class="item">
+          <label>Vencimento</label>
+          <span>${vencimento}</span>
+        </div>
+        <div class="item">
+          <label>Valor do Documento</label>
+          <span>${valor}</span>
+        </div>
+        <div class="item">
+          <label>Nosso N&uacute;mero</label>
+          <span>${nossoNumero}</span>
+        </div>
+        <div class="item">
+          <label>N&uacute;mero Documento</label>
+          <span>${numDocumento}</span>
+        </div>
+        <div class="item">
+          <label>Ag&ecirc;ncia/C&oacute;digo</label>
+          <span>${agenciaCodigo}</span>
+        </div>
+        <div class="item">
+          <label>Pagador</label>
+          <span>${nome} - ${cpf}</span>
+        </div>
+      </div>
 
-    <!-- Linha: Beneficiario | CPF/CNPJ | Agencia/Codigo -->
-    <tr>
-      <td colspan="4">
-        <label>Benefici&aacute;rio</label>
-        <span>${cedente}</span>
-      </td>
-      <td style="width: 200px">
-        <label>CPF/CNPJ Benefici&aacute;rio</label>
-        <span>25.452.912/0001-25</span>
-      </td>
-      <td>
-        <label>Ag&ecirc;ncia/C&oacute;digo Benefici&aacute;rio</label>
-        <span>${agenciaCodigo}</span>
-      </td>
-    </tr>
+      <div class="instrucoes">
+        ${linha1 ? `<p>${linha1}</p>` : ''}
+        ${linha2 ? `<p>${linha2}</p>` : ''}
+        ${linha3 ? `<p>${linha3}</p>` : ''}
+        ${instrucao1 ? `<p>${instrucao1}</p>` : ''}
+        ${instrucao2 ? `<p>${instrucao2}</p>` : ''}
+      </div>
 
-    <!-- Linha: Data doc | Num doc | Especie doc | Aceite | Data proc | Nosso numero -->
-    <tr>
-      <td>
-        <label> Data Doc.</label>
-        <span class="right">${dataDocumento}</span>
-      </td>
-      <td>
-        <label>N&uacute;mero Doc.</label>
-        <span class="right">${numDocumento}</span>
-      </td>
-      <td>
-        <label>Esp&eacute;cie Doc.</label>
-        <span class="right">${especieDoc}</span>
-      </td>
-      <td>
-        <label>Aceite</label>
-        <span class="right">${aceite}</span>
-      </td>
-      <td>
-        <label>Data Processamento</label>
-        <span class="right">${dataProcessamento}</span>
-      </td>
-      <td>
-        <label>Nosso N&uacute;mero</label>
-        <span class="right">${nossoNumero}</span>
-      </td>
-    </tr>
+      <div class="barcode">
+        ${barcodeBase64 ? `<img src="${barcodeBase64}" alt="barcode"/>` : ''}
+      </div>
+    </div>
 
-    <!-- Linha: Uso banco | Carteira | Especie Moeda | Qtd moeda | Valor | Valor documento -->
-    <tr>
-      <td>
-        <label>Uso do Banco</label>
-      </td>
-      <td>
-        <label>Carteira</label>
-      </td>
-      <td>
-        <label>Esp&eacute;cie Moeda</label>
-        <span class="right">${especie || 'R$'}</span>
-      </td>
-      <td>
-        <label>Quant. Moeda</label>
-      </td>
-      <td>
-        <label>(X) Valor</label>
-      </td>
-      <td>
-        <label>(=) Valor Documento</label>
-        <span class="right">${valor}</span>
-      </td>
-    </tr>
-
-    <!-- Linha: Instrucoes (rowspan 5) | Desconto -->
-    <tr>
-      <td colspan="5" rowspan="5">
-        <label>Instru&ccedil;&otilde;es de responsabilidade do BENEFICI&Aacute;RIO. Qualquer d&uacute;vida sobre este boleto contate o benefici&aacute;rio</label>
-        <p class="bold">${linha1}</p>
-        <p class="bold">${linha2}</p>
-        <p class="bold">${linha3}</p>
-        <p class="bold">${instrucao1}</p>
-        <p class="bold">${instrucao2}</p>
-        <p class="obs">${obs}</p>
-      </td>
-      <td>
-        <label>(-)Desconto</label>
-      </td>
-    </tr>
-
-    <!-- Deducoes -->
-    <tr>
-      <td>
-        <label>(-)Outras Dedu&ccedil;&otilde;es/Abatimentos</label>
-      </td>
-    </tr>
-
-    <!-- Mora/Multa -->
-    <tr>
-      <td>
-        <label>(+)Mora/Multa/Juros</label>
-      </td>
-    </tr>
-
-    <!-- Acrescimos -->
-    <tr>
-      <td>
-        <label>(+)Outros Acr&eacute;scimos</label>
-      </td>
-    </tr>
-
-    <!-- Valor cobrado -->
-    <tr>
-      <td>
-        <label>(=)Valor cobrado</label>
-      </td>
-    </tr>
-
-    <!-- Pagador + Sacador/Avalista -->
-    <tr>
-      <td colspan="6">
-        <label>Pagador</label>
-        <span class="bold">
-          ${nome}
-          -
-          ${cpf}
-        </span>
-        <p style="font-size: 11px; margin-left: 37px;">
-          ${enderecoCompleto}
-        </p>
-        <label class="bold">Sacador/ Avalista:</label>
-        <span>${sacadorRazao}</span>
-      </td>
-    </tr>
-  </table>
-
-  <!-- Codigo de barras -->
-  <p style="margin-left: 5px; display: flex;">
-    ${barcodeBase64 ? `<img width="500px" src="${barcodeBase64}" alt="barcode"/>` : ''}
-  </p>
-
+    ${temPix ? `
+    <div class="pix-col">
+      <div class="pix-titulo">Pague com PIX</div>
+      <div class="pix-qr">
+        <img src="${dadosPix.qrCodeBase64}" alt="QR Code PIX"/>
+      </div>
+      <div class="pix-copiacola">${pixCopiaECola}</div>
+    </div>
+    ` : ''}
+  </div>
 </body>
 </html>`;
 }
 
-module.exports = { gerarHtmlTermica };
+// ============================================================
+// Layout 2: PIX Puro (somente PIX) — 297mm x 80mm
+// ============================================================
+function gerarHtmlPixPuro(dadosPix, dadosCliente) {
+  const nomePagador = escapeHtml(dadosPix.devedor?.nome || dadosCliente?.nome || '');
+  const cpfPagador = escapeHtml(formatarCpf(dadosPix.devedor?.cpf || dadosCliente?.cpf || ''));
+  const valorFormatado = formatarValor(dadosPix.valor);
+  const vencimento = escapeHtml(dadosPix.vencimento || '');
+  const expiracaoPix = escapeHtml(dadosPix.expiracaoPix || '');
+  const solicitacao = escapeHtml(dadosPix.solicitacaoPagador || '');
+  const pixCopiaECola = escapeHtml(dadosPix.pixCopiaECola || dadosPix.qrCodeText || '');
+  const qrCodeBase64 = dadosPix.qrCodeBase64 || '';
+
+  const logoImg = logoBase64
+    ? `<img src="${logoBase64}" alt="Logo" style="max-width: 60mm; max-height: 20mm; margin-bottom: 2mm;"/>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>PIX - Pagamento</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { font-family: Arial, Helvetica, sans-serif; font-size: 8px; }
+    @page { size: 297mm 80mm; margin: 0; }
+    @media print { body { margin: 0; } @page { size: 297mm 80mm; margin: 0; } }
+
+    .container { width: 297mm; height: 80mm; display: flex; flex-direction: column; overflow: hidden; }
+    .main-row { display: flex; flex: 1; min-height: 0; }
+
+    .col-logo { width: 80mm; padding: 3mm; display: flex; flex-direction: column; justify-content: center; align-items: center; border-right: 1px dashed #ccc; }
+    .col-logo .empresa { font-size: 11px; font-weight: bold; text-align: center; color: #222; }
+    .col-logo .subtitulo { font-size: 9px; color: #555; margin-top: 1mm; }
+
+    .col-qr { width: 90mm; padding: 2mm; display: flex; flex-direction: column; justify-content: center; align-items: center; border-right: 1px dashed #ccc; }
+    .col-qr img { width: 58mm; height: 58mm; }
+    .col-qr .qr-label { font-size: 7px; color: #555; margin-top: 1mm; }
+
+    .col-dados { flex: 1; padding: 3mm 4mm; display: flex; flex-direction: column; justify-content: center; }
+    .col-dados .dado { margin-bottom: 1.5mm; }
+    .col-dados .dado label { font-size: 6.5px; color: #777; text-transform: uppercase; display: block; }
+    .col-dados .dado span { font-size: 9px; font-weight: bold; color: #222; }
+    .col-dados .dado.valor span { font-size: 13px; color: #000; }
+
+    .footer-pix { border-top: 1px dashed #ccc; padding: 1.5mm 3mm; font-size: 6.5px; line-height: 1.3; }
+    .footer-pix strong { font-size: 7px; }
+    .footer-pix .codigo { word-break: break-all; font-family: monospace; font-size: 6px; color: #333; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="main-row">
+      <div class="col-logo">
+        ${logoImg}
+        <div class="empresa">SEEG FIBRAS</div>
+        <div class="empresa" style="font-size: 8px;">TELECOMUNICA&Ccedil;&Otilde;ES LTDA</div>
+        <div class="subtitulo">Pagamento via PIX</div>
+      </div>
+
+      <div class="col-qr">
+        ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR Code PIX"/>` : '<div style="font-size:10px;color:#999;">QR Code indisponivel</div>'}
+        <div class="qr-label">Escaneie para pagar</div>
+      </div>
+
+      <div class="col-dados">
+        <div class="dado valor">
+          <label>Valor</label>
+          <span>${valorFormatado}</span>
+        </div>
+        <div class="dado">
+          <label>Pagador</label>
+          <span>${nomePagador}</span>
+        </div>
+        <div class="dado">
+          <label>CPF/CNPJ</label>
+          <span>${cpfPagador}</span>
+        </div>
+        <div class="dado">
+          <label>Vencimento</label>
+          <span>${vencimento}</span>
+        </div>
+        ${solicitacao ? `
+        <div class="dado">
+          <label>Descri&ccedil;&atilde;o</label>
+          <span>${solicitacao}</span>
+        </div>` : ''}
+        ${expiracaoPix ? `
+        <div class="dado">
+          <label>Expira em</label>
+          <span>${expiracaoPix}</span>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div class="footer-pix">
+      <strong>PIX Copia e Cola:</strong>
+      <span class="codigo">${pixCopiaECola}</span>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+module.exports = { gerarHtmlBoletoGateway, gerarHtmlPixPuro };

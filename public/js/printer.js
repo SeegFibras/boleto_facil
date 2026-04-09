@@ -4,7 +4,7 @@
 const Printer = {
 
   // Imprime um boleto individual via iframe escondido
-  async imprimir(boletoId) {
+  async imprimir(boletoId, tipo) {
     return new Promise((resolve, reject) => {
       const iframeId = 'printFrame-' + boletoId;
 
@@ -15,7 +15,7 @@ const Printer = {
       // Cria iframe escondido com o PDF do boleto
       const iframe = document.createElement('iframe');
       iframe.id = iframeId;
-      iframe.src = Api.getBoletoUrl(boletoId);
+      iframe.src = Api.getBoletoUrl(boletoId, tipo);
       iframe.style.cssText = 'display:none; width:1px; height:1px; position:absolute; left:-9999px;';
       document.body.appendChild(iframe);
 
@@ -27,7 +27,7 @@ const Printer = {
         } catch (error) {
           // Fallback: abre em nova aba se o print() falhar (ex: cross-origin)
           console.warn('Fallback para window.open:', error.message);
-          window.open(Api.getBoletoUrl(boletoId), '_blank');
+          window.open(Api.getBoletoUrl(boletoId, tipo), '_blank');
           resolve(true);
         }
 
@@ -40,7 +40,7 @@ const Printer = {
 
       iframe.onerror = function () {
         // Fallback: abre em nova aba
-        window.open(Api.getBoletoUrl(boletoId), '_blank');
+        window.open(Api.getBoletoUrl(boletoId, tipo), '_blank');
         resolve(true);
       };
     });
