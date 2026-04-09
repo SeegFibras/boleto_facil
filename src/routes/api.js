@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
-const { buscarCliente, buscarContratos, buscarBoletos, obterPdfBoleto, obterDadosBoleto, obterPix, buscarEnderecoParaImpressao } = require('../services/ixcApi');
+const { buscarCliente, buscarContratos, buscarBoletos, obterPdfBoleto, obterDadosBoleto, obterPix, buscarNomeCidade, buscarEnderecoParaImpressao } = require('../services/ixcApi');
 const { gerarHtmlBoletoGateway, gerarHtmlPixPuro } = require('../templates/termicaBoleto');
 const { gerarPdfBoleto } = require('../services/pdfGenerator');
 const { validar, mascarar } = require('../utils/cpfCnpj');
@@ -59,17 +59,27 @@ router.post('/consultar', apiLimiter, sanitizeCpfCnpj, async (req, res) => {
       contratosMap[c.id] = c;
     }
 
+    // Fallback: endereço do cliente (lazy, só resolve cidade se precisar)
+    let enderecoCliente = undefined;
+
     res.json({
       cliente: {
         nome: cliente.nome,
         cpfCnpj: cliente.cpfCnpj
       },
-      boletos: boletos.map(b => {
+      boletos: await Promise.all(boletos.map(async b => {
         const contrato = contratosMap[b.idContrato];
         let endereco = null;
         if (contrato) {
           const partes = [contrato.endereco, contrato.numero, contrato.complemento, contrato.bairro, contrato.cidade].filter(Boolean);
           endereco = partes.join(', ') + (contrato.cep ? ' - CEP: ' + contrato.cep : '');
+        } else if (cliente.endereco) {
+          if (enderecoCliente === undefined) {
+            const nomeCidade = await buscarNomeCidade(cliente.cidade);
+            const partes = [cliente.endereco, cliente.numero, cliente.complemento, cliente.bairro, nomeCidade].filter(Boolean);
+            enderecoCliente = partes.join(', ') + (cliente.cep ? ' - CEP: ' + cliente.cep : '');
+          }
+          endereco = enderecoCliente;
         }
         return {
           id: b.id,
@@ -80,7 +90,7 @@ router.post('/consultar', apiLimiter, sanitizeCpfCnpj, async (req, res) => {
           endereco,
           tipoRecebimento: b.tipoRecebimento
         };
-      })
+      }))
     });
   } catch (error) {
     logger.error(`Erro na consulta ${docMascarado}: ${error.message}`);

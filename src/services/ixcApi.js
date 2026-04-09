@@ -108,7 +108,13 @@ async function buscarCliente(cpfCnpj) {
     nome: cliente.razao,
     cpfCnpj: cliente.cnpj_cpf,
     telefone: cliente.telefone_celular,
-    email: cliente.email
+    email: cliente.email,
+    endereco: cliente.endereco,
+    numero: cliente.numero,
+    bairro: cliente.bairro,
+    cidade: cliente.cidade,
+    cep: cliente.cep,
+    complemento: cliente.complemento
   };
 }
 
@@ -242,7 +248,7 @@ async function buscarBoletos(idCliente) {
     sortorder: 'asc',
     grid_param: JSON.stringify([
       { TB: 'fn_areceber.liberado', OP: '=', P: 'S' },
-      { TB: 'fn_areceber.status', OP: 'L', P1: 'P', P2: 'A' }
+      { TB: 'fn_areceber.status', OP: '=', P: 'A' }
     ])
   };
 
@@ -489,6 +495,7 @@ module.exports = {
   obterPdfBoleto,
   obterDadosBoleto,
   obterPix,
+  buscarNomeCidade,
   buscarEnderecoParaImpressao,
   testarConexao
 };
