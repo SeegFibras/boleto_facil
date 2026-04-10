@@ -104,7 +104,6 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
 
   const barcodeBase64 = gerarCodigoBarras(dadosBoleto.codigo_barras);
   const temPix = dadosPix && dadosPix.qrCodeBase64;
-  const pixCopiaECola = temPix ? escapeHtml(dadosPix.pixCopiaECola || dadosPix.qrCodeText || '') : '';
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -113,7 +112,7 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
   <title>Boleto - ${numDocumento}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { font-family: Arial, Helvetica, sans-serif; font-size: 8px; }
+    body, html { font-family: Arial, Helvetica, sans-serif; font-size: 9px; }
     @page { size: 297mm 80mm; margin: 0; }
     @media print { body { margin: 0; } @page { size: 297mm 80mm; margin: 0; } }
 
@@ -121,26 +120,25 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
     .boleto-col { flex: 1; padding: 2mm 3mm; display: flex; flex-direction: column; }
     .pix-col { width: 85mm; border-left: 1px dashed #666; padding: 2mm; display: flex; flex-direction: column; align-items: center; }
 
-    .linha-digitavel { font-size: 11px; font-weight: bold; letter-spacing: 0.5px; border-bottom: 1px solid #000; padding-bottom: 1mm; margin-bottom: 1mm; }
-    .banco-codigo { font-size: 13px; font-weight: bold; border-right: 2px solid #000; padding-right: 3mm; margin-right: 3mm; display: inline-block; }
+    .linha-digitavel { font-size: 13px; font-weight: bold; letter-spacing: 0.5px; border-bottom: 1px solid #000; padding-bottom: 1mm; margin-bottom: 1mm; }
+    .banco-codigo { font-size: 15px; font-weight: bold; border-right: 2px solid #000; padding-right: 3mm; margin-right: 3mm; display: inline-block; }
 
-    .dados-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5mm; font-size: 7.5px; margin-bottom: 1mm; }
+    .dados-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5mm; font-size: 9px; margin-bottom: 1mm; }
     .dados-grid .item { border: 0.5px solid #ccc; padding: 0.5mm 1mm; }
-    .dados-grid .item label { display: block; font-size: 6px; color: #555; text-transform: uppercase; }
-    .dados-grid .item span { font-size: 8px; font-weight: bold; }
+    .dados-grid .item label { display: block; font-size: 7.5px; color: #555; text-transform: uppercase; }
+    .dados-grid .item span { font-size: 10px; font-weight: bold; }
 
-    .instrucoes { font-size: 7px; line-height: 1.3; margin-bottom: 1mm; flex-shrink: 1; overflow: hidden; }
+    .instrucoes { font-size: 8.5px; line-height: 1.3; margin-bottom: 1mm; flex-shrink: 1; overflow: hidden; }
     .instrucoes p { margin: 0; font-weight: bold; }
 
-    .pagador { font-size: 7.5px; margin-bottom: 1mm; }
-    .pagador strong { font-size: 8px; }
+    .pagador { font-size: 9px; margin-bottom: 1mm; }
+    .pagador strong { font-size: 10px; }
 
     .barcode { margin-top: auto; }
     .barcode img { width: 100%; max-height: 28px; }
 
-    .pix-titulo { font-size: 9px; font-weight: bold; margin-bottom: 1mm; color: #333; }
-    .pix-qr img { width: 55mm; height: 55mm; }
-    .pix-copiacola { font-size: 5.5px; word-break: break-all; text-align: center; margin-top: 1mm; line-height: 1.2; color: #333; max-height: 12mm; overflow: hidden; }
+    .pix-titulo { font-size: 11px; font-weight: bold; margin-bottom: 1mm; color: #333; }
+    .pix-qr img { width: 60mm; height: 60mm; }
   </style>
 </head>
 <body>
@@ -205,7 +203,6 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
       <div class="pix-qr">
         <img src="${dadosPix.qrCodeBase64}" alt="QR Code PIX"/>
       </div>
-      <div class="pix-copiacola">${pixCopiaECola}</div>
     </div>
     ` : ''}
   </div>
@@ -223,7 +220,6 @@ function gerarHtmlPixPuro(dadosPix, dadosCliente, endereco) {
   const vencimento = escapeHtml(dadosPix.vencimento || '');
   const expiracaoPix = escapeHtml(dadosPix.expiracaoPix || '');
   const solicitacao = escapeHtml(dadosPix.solicitacaoPagador || '');
-  const pixCopiaECola = escapeHtml(dadosPix.pixCopiaECola || dadosPix.qrCodeText || '');
   const qrCodeBase64 = dadosPix.qrCodeBase64 || '';
 
   const logoImg = logoBase64
@@ -237,7 +233,7 @@ function gerarHtmlPixPuro(dadosPix, dadosCliente, endereco) {
   <title>PIX - Pagamento</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { font-family: Arial, Helvetica, sans-serif; font-size: 8px; }
+    body, html { font-family: Arial, Helvetica, sans-serif; font-size: 9px; }
     @page { size: 297mm 80mm; margin: 0; }
     @media print { body { margin: 0; } @page { size: 297mm 80mm; margin: 0; } }
 
@@ -245,22 +241,18 @@ function gerarHtmlPixPuro(dadosPix, dadosCliente, endereco) {
     .main-row { display: flex; flex: 1; min-height: 0; }
 
     .col-logo { width: 80mm; padding: 3mm; display: flex; flex-direction: column; justify-content: center; align-items: center; border-right: 1px dashed #ccc; }
-    .col-logo .empresa { font-size: 11px; font-weight: bold; text-align: center; color: #222; }
-    .col-logo .subtitulo { font-size: 9px; color: #555; margin-top: 1mm; }
+    .col-logo .empresa { font-size: 13px; font-weight: bold; text-align: center; color: #222; }
+    .col-logo .subtitulo { font-size: 10px; color: #555; margin-top: 1mm; }
 
     .col-qr { width: 90mm; padding: 2mm; display: flex; flex-direction: column; justify-content: center; align-items: center; border-right: 1px dashed #ccc; }
     .col-qr img { width: 58mm; height: 58mm; }
-    .col-qr .qr-label { font-size: 7px; color: #555; margin-top: 1mm; }
+    .col-qr .qr-label { font-size: 8.5px; color: #555; margin-top: 1mm; }
 
     .col-dados { flex: 1; padding: 3mm 4mm; display: flex; flex-direction: column; justify-content: center; }
     .col-dados .dado { margin-bottom: 1.5mm; }
-    .col-dados .dado label { font-size: 6.5px; color: #777; text-transform: uppercase; display: block; }
-    .col-dados .dado span { font-size: 9px; font-weight: bold; color: #222; }
-    .col-dados .dado.valor span { font-size: 13px; color: #000; }
-
-    .footer-pix { border-top: 1px dashed #ccc; padding: 1.5mm 3mm; font-size: 6.5px; line-height: 1.3; }
-    .footer-pix strong { font-size: 7px; }
-    .footer-pix .codigo { word-break: break-all; font-family: monospace; font-size: 6px; color: #333; }
+    .col-dados .dado label { font-size: 8px; color: #777; text-transform: uppercase; display: block; }
+    .col-dados .dado span { font-size: 11px; font-weight: bold; color: #222; }
+    .col-dados .dado.valor span { font-size: 16px; color: #000; }
   </style>
 </head>
 <body>
@@ -269,7 +261,7 @@ function gerarHtmlPixPuro(dadosPix, dadosCliente, endereco) {
       <div class="col-logo">
         ${logoImg}
         <div class="empresa">SEEG FIBRAS</div>
-        <div class="empresa" style="font-size: 8px;">TELECOMUNICA&Ccedil;&Otilde;ES LTDA</div>
+        <div class="empresa" style="font-size: 9px;">TELECOMUNICA&Ccedil;&Otilde;ES LTDA</div>
         <div class="subtitulo">Pagamento via PIX</div>
       </div>
 
@@ -293,7 +285,7 @@ function gerarHtmlPixPuro(dadosPix, dadosCliente, endereco) {
         </div>${endereco ? `
         <div class="dado">
           <label>Endere&ccedil;o</label>
-          <span style="font-size: 7px;">${endereco}</span>
+          <span>${endereco}</span>
         </div>` : ''}
         <div class="dado">
           <label>Vencimento</label>
@@ -312,10 +304,6 @@ function gerarHtmlPixPuro(dadosPix, dadosCliente, endereco) {
       </div>
     </div>
 
-    <div class="footer-pix">
-      <strong>PIX Copia e Cola:</strong>
-      <span class="codigo">${pixCopiaECola}</span>
-    </div>
   </div>
 </body>
 </html>`;
