@@ -14,7 +14,6 @@ DEPLOY_INFO="$PROJECT_DIR/deploy-info.json"
 APP_USER="seeg"
 PM2_APP="boletos-seeg-fibras"
 HEALTH_URL="http://127.0.0.1:3000/"
-EXECUTABLE_PATH="/opt/boleto-seeg/.cache-puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome"
 
 mkdir -p "$LOG_DIR"
 
@@ -39,29 +38,13 @@ log "=========================================="
 log "DEPLOY MANUAL INICIADO"
 log "Commit atual: $LOCAL_HEAD_BEFORE"
 
-# Backup do pdfGenerator.js
-cp "$PROJECT_DIR/src/services/pdfGenerator.js" "$PROJECT_DIR/src/services/pdfGenerator.js.bak"
-log "Backup do pdfGenerator.js criado"
-
 # Git pull
 if ! su - "$APP_USER" -c "cd $PROJECT_DIR && git pull origin main" >> "$LOG_FILE" 2>&1; then
     log "ERRO: git pull falhou"
-    cp "$PROJECT_DIR/src/services/pdfGenerator.js.bak" "$PROJECT_DIR/src/services/pdfGenerator.js"
     exit 1
 fi
 
 log "Git pull concluído"
-
-# Restaura executablePath
-if ! grep -q "executablePath" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
-    log "Restaurando executablePath no pdfGenerator.js"
-    sed -i "s|puppeteer.launch({|puppeteer.launch({\n        executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
-elif ! grep -q "$EXECUTABLE_PATH" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
-    log "Atualizando executablePath no pdfGenerator.js"
-    sed -i "s|executablePath:.*|executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
-fi
-
-log "executablePath verificado/restaurado"
 
 # Sempre reinstala dependências no deploy forçado
 log "Rodando npm install..."
@@ -99,9 +82,6 @@ cat > "$DEPLOY_INFO" <<EOF
 }
 EOF
 chown "$APP_USER":"$APP_USER" "$DEPLOY_INFO"
-
-# Limpa backup
-rm -f "$PROJECT_DIR/src/services/pdfGenerator.js.bak"
 
 log "DEPLOY MANUAL CONCLUÍDO: $LOCAL_HEAD_BEFORE -> $NEW_COMMIT"
 log "=========================================="

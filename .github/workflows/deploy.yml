@@ -21,7 +21,6 @@ jobs:
             APP_USER="seeg"
             PM2_APP="boletos-seeg-fibras"
             HEALTH_URL="http://127.0.0.1:3000/"
-            EXECUTABLE_PATH="/opt/boleto-seeg/.cache-puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome"
 
             cd "$PROJECT_DIR"
 
@@ -32,20 +31,9 @@ jobs:
             PREV_COMMIT=$(su - $APP_USER -c "cd $PROJECT_DIR && git rev-parse HEAD")
             echo "Commit atual: $PREV_COMMIT"
 
-            # Backup do pdfGenerator.js
-            cp "$PROJECT_DIR/src/services/pdfGenerator.js" "$PROJECT_DIR/src/services/pdfGenerator.js.bak"
-
             # Git pull
             su - $APP_USER -c "cd $PROJECT_DIR && git pull origin main"
             echo "Git pull concluído"
-
-            # Restaura executablePath no pdfGenerator.js se necessário
-            if ! grep -q "executablePath" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
-              sed -i "s|puppeteer.launch({|puppeteer.launch({\n        executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
-            elif ! grep -q "$EXECUTABLE_PATH" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
-              sed -i "s|executablePath:.*|executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
-            fi
-            echo "executablePath verificado"
 
             # Verifica se package.json mudou e instala dependências
             PKG_CHANGED=$(su - $APP_USER -c "cd $PROJECT_DIR && git diff HEAD~1 --name-only 2>/dev/null | grep -c package.json" || echo "0")
@@ -66,16 +54,10 @@ jobs:
             if [ "$HTTP_CODE" != "200" ]; then
               echo "ERRO: Health check falhou — rollback para $PREV_COMMIT"
               su - $APP_USER -c "cd $PROJECT_DIR && git reset --hard $PREV_COMMIT"
-              if ! grep -q "$EXECUTABLE_PATH" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
-                sed -i "s|puppeteer.launch({|puppeteer.launch({\n        executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
-              fi
               su - $APP_USER -c "pm2 restart $PM2_APP"
               sleep 5
               exit 1
             fi
-
-            # Limpa backup
-            rm -f "$PROJECT_DIR/src/services/pdfGenerator.js.bak"
 
             NEW_COMMIT=$(su - $APP_USER -c "cd $PROJECT_DIR && git rev-parse --short HEAD")
             echo "Deploy concluído: $PREV_COMMIT -> $NEW_COMMIT"

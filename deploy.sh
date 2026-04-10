@@ -15,7 +15,6 @@ DEPLOY_INFO="$PROJECT_DIR/deploy-info.json"
 APP_USER="seeg"
 PM2_APP="boletos-seeg-fibras"
 HEALTH_URL="http://127.0.0.1:3000/"
-EXECUTABLE_PATH="/opt/boleto-seeg/.cache-puppeteer/chrome/linux-146.0.7680.153/chrome-linux64/chrome"
 MAX_LOG_SIZE=5242880  # 5MB
 
 # Garante que o diretório de logs existe
@@ -58,29 +57,13 @@ log "Remote: $REMOTE_HEAD"
 # Hash do package.json antes do pull
 PKG_HASH_BEFORE=$(md5sum "$PROJECT_DIR/package.json" | awk '{print $1}')
 
-# Backup do pdfGenerator.js
-cp "$PROJECT_DIR/src/services/pdfGenerator.js" "$PROJECT_DIR/src/services/pdfGenerator.js.bak"
-log "Backup do pdfGenerator.js criado"
-
 # Git pull
 if ! su - "$APP_USER" -c "cd $PROJECT_DIR && git pull origin main" >> "$LOG_FILE" 2>&1; then
     log "ERRO: git pull falhou"
-    cp "$PROJECT_DIR/src/services/pdfGenerator.js.bak" "$PROJECT_DIR/src/services/pdfGenerator.js"
     exit 1
 fi
 
 log "Git pull concluído"
-
-# Restaura executablePath no pdfGenerator.js se foi sobrescrito
-if ! grep -q "executablePath" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
-    log "Restaurando executablePath no pdfGenerator.js"
-    sed -i "s|puppeteer.launch({|puppeteer.launch({\n        executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
-elif ! grep -q "$EXECUTABLE_PATH" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
-    log "Atualizando executablePath no pdfGenerator.js"
-    sed -i "s|executablePath:.*|executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
-fi
-
-log "executablePath verificado/restaurado"
 
 # Verifica se package.json mudou
 PKG_HASH_AFTER=$(md5sum "$PROJECT_DIR/package.json" | awk '{print $1}')
@@ -108,11 +91,6 @@ if [ "$HTTP_CODE" != "200" ]; then
 
     su - "$APP_USER" -c "cd $PROJECT_DIR && git reset --hard HEAD~1" >> "$LOG_FILE" 2>&1
 
-    # Restaura executablePath após rollback
-    if ! grep -q "$EXECUTABLE_PATH" "$PROJECT_DIR/src/services/pdfGenerator.js"; then
-        sed -i "s|puppeteer.launch({|puppeteer.launch({\n        executablePath: '$EXECUTABLE_PATH',|" "$PROJECT_DIR/src/services/pdfGenerator.js"
-    fi
-
     su - "$APP_USER" -c "pm2 restart $PM2_APP" >> "$LOG_FILE" 2>&1
     sleep 5
 
@@ -136,8 +114,6 @@ cat > "$DEPLOY_INFO" <<EOF
 }
 EOF
 chown "$APP_USER":"$APP_USER" "$DEPLOY_INFO"
-
-rm -f "$PROJECT_DIR/src/services/pdfGenerator.js.bak"
 
 log "DEPLOY CONCLUÍDO com sucesso: $LOCAL_HEAD -> $NEW_COMMIT"
 log "=========================================="

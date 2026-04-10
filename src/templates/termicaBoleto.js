@@ -122,6 +122,9 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco, extras = {}) {
   const jurosStr = formatarJuros(dadosPix?.juros);
   const multaStr = formatarMulta(dadosPix?.multa);
   const idContrato = extras.idContrato && extras.idContrato !== '0' ? escapeHtml(String(extras.idContrato)) : '';
+  const agenciaCodigo = escapeHtml(dadosBoleto.agencia_codigo || '');
+  const especie = escapeHtml(dadosBoleto.especie || '');
+  const obs = escapeHtml(dadosBoleto.obs || '');
 
   const barcodeBase64 = gerarCodigoBarras(dadosBoleto.codigo_barras);
   const temPix = dadosPix && dadosPix.qrCodeBase64;
@@ -184,8 +187,8 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco, extras = {}) {
           <span>${vencimento}</span>
         </div>
         <div class="item">
-          <label>Valor do Documento</label>
-          <span>${valor}</span>
+          <label>Ag&ecirc;ncia/C&oacute;digo</label>
+          <span>${agenciaCodigo}</span>
         </div>
         <div class="item">
           <label>Nosso N&uacute;mero</label>
@@ -196,23 +199,29 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco, extras = {}) {
           <span>${numDocumento}</span>
         </div>
         <div class="item">
+          <label>Esp&eacute;cie Moeda</label>
+          <span>${especie}</span>
+        </div>
+        <div class="item">
+          <label>Valor</label>
+          <span>${valor}</span>
+        </div>
+        <div class="item" style="grid-column: span 2;">
+          <label>Observa&ccedil;&atilde;o</label>
+          <span>${obs}</span>
+        </div>
+        <div class="item" style="grid-column: span 2;">
           <label>Pagador</label>
           <span>${nome} - ${cpf}</span>
-        </div>${endereco ? `
+        </div>${idContrato ? `
+        <div class="item" style="grid-column: span 2;">
+          <label>Contrato do pagador&nbsp;&nbsp;(ID - Descri&ccedil;&atilde;o)</label>
+          <span>${idContrato}</span>
+        </div>` : ''}${endereco ? `
         <div class="item" style="grid-column: span 2;">
           <label>Endere&ccedil;o</label>
           <span>${endereco}</span>
-        </div>` : ''}${jurosStr || multaStr || idContrato ? `
-        ${jurosStr ? `<div class="item">
-          <label>Juros</label>
-          <span>${jurosStr}</span>
-        </div>` : ''}${multaStr ? `<div class="item">
-          <label>Multa</label>
-          <span>${multaStr}</span>
-        </div>` : ''}${idContrato ? `<div class="item">
-          <label>Contrato</label>
-          <span>${idContrato}</span>
-        </div>` : ''}` : ''}
+        </div>` : ''}
       </div>
 
       <div class="instrucoes">
@@ -278,6 +287,9 @@ function gerarHtmlPixPuro(dadosPix, dadosBoleto, endereco, extras = {}) {
   const jurosStr = formatarJuros(dadosPix?.juros);
   const multaStr = formatarMulta(dadosPix?.multa);
   const idContrato = extras.idContrato && extras.idContrato !== '0' ? escapeHtml(String(extras.idContrato)) : '';
+  const agenciaCodigo = escapeHtml(dadosBoleto?.agencia_codigo || '');
+  const especie = escapeHtml(dadosBoleto?.especie || '');
+  const obs = escapeHtml(dadosBoleto?.obs || '');
 
   const qrCodeBase64 = dadosPix?.qrCodeBase64 || '';
 
@@ -325,31 +337,41 @@ function gerarHtmlPixPuro(dadosPix, dadosBoleto, endereco, extras = {}) {
           <span>${vencimento}</span>
         </div>
         <div class="item">
-          <label>Valor do Documento</label>
+          <label>Ag&ecirc;ncia/C&oacute;digo</label>
+          <span>${agenciaCodigo}</span>
+        </div>
+        <div class="item">
+          <label>Nosso N&uacute;mero</label>
+          <span>${nossoNumero}</span>
+        </div>
+        <div class="item">
+          <label>N&uacute;mero Documento</label>
+          <span>${numDocumento}</span>
+        </div>
+        <div class="item">
+          <label>Esp&eacute;cie Moeda</label>
+          <span>${especie}</span>
+        </div>
+        <div class="item">
+          <label>Valor</label>
           <span>${valor}</span>
         </div>
         <div class="item" style="grid-column: span 2;">
-          <label>N&uacute;mero Documento</label>
-          <span>${numDocumento}</span>
+          <label>Observa&ccedil;&atilde;o</label>
+          <span>${obs}</span>
         </div>
         <div class="item" style="grid-column: span 2;">
           <label>Pagador</label>
           <span>${nome} - ${cpf}</span>
-        </div>${endereco ? `
+        </div>${idContrato ? `
+        <div class="item" style="grid-column: span 2;">
+          <label>Contrato do pagador&nbsp;&nbsp;(ID - Descri&ccedil;&atilde;o)</label>
+          <span>${idContrato}</span>
+        </div>` : ''}${endereco ? `
         <div class="item" style="grid-column: span 2;">
           <label>Endere&ccedil;o</label>
           <span>${endereco}</span>
-        </div>` : ''}${jurosStr || multaStr || idContrato ? `
-        ${jurosStr ? `<div class="item">
-          <label>Juros</label>
-          <span>${jurosStr}</span>
-        </div>` : ''}${multaStr ? `<div class="item">
-          <label>Multa</label>
-          <span>${multaStr}</span>
-        </div>` : ''}${idContrato ? `<div class="item">
-          <label>Contrato</label>
-          <span>${idContrato}</span>
-        </div>` : ''}` : ''}
+        </div>` : ''}
       </div>
 
       <div class="instrucoes">

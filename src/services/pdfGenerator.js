@@ -12,6 +12,7 @@ async function getBrowser() {
   if (!browser || !browser.isConnected()) {
     try {
       browser = await puppeteer.launch({
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
       });
