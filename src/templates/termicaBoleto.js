@@ -58,6 +58,22 @@ function formatarCpf(cpf) {
   return cpf;
 }
 
+// Formata juros (modalidade 2 = percentual)
+function formatarJuros(juros) {
+  if (!juros?.valorPerc) return '';
+  const val = parseFloat(juros.valorPerc);
+  if (isNaN(val) || val === 0) return '';
+  return val.toFixed(2).replace('.', ',') + '% a.m.';
+}
+
+// Formata multa (modalidade 2 = percentual)
+function formatarMulta(multa) {
+  if (!multa?.valorPerc) return '';
+  const val = parseFloat(multa.valorPerc);
+  if (isNaN(val) || val === 0) return '';
+  return val.toFixed(2).replace('.', ',') + '%';
+}
+
 // Formata valor como R$ XX,XX
 function formatarValor(valor) {
   if (!valor) return 'R$ 0,00';
@@ -69,7 +85,7 @@ function formatarValor(valor) {
 // ============================================================
 // Layout 1: Boleto Gateway (boleto + PIX) — 297mm x 80mm
 // ============================================================
-function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
+function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco, extras = {}) {
   // Extrai numero da fatura do solicitacaoPagador (ex: "Fatura 1045330" -> "1045330")
   const numFaturaPix = dadosPix?.solicitacaoPagador
     ? dadosPix.solicitacaoPagador.replace(/\D/g, '')
@@ -87,7 +103,9 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
   }
 
   // Campos com fallback para dados do Pix quando o boleto vem vazio
-  const nome = escapeHtml(dadosBoleto.sacado || dadosPix?.devedor?.nome || '');
+  const idCliente = extras.idCliente || '';
+  const nomeRaw = escapeHtml(dadosBoleto.sacado || dadosPix?.devedor?.nome || '');
+  const nome = idCliente ? `${escapeHtml(String(idCliente))} - ${nomeRaw}` : nomeRaw;
   const cpf = escapeHtml(dadosBoleto.CPF || formatarCpf(dadosPix?.devedor?.cpf) || '');
   const numDocumento = escapeHtml(dadosBoleto.numero_documento || numFaturaPix || '');
   const nossoNumero = escapeHtml(dadosBoleto.nosso_numero || numFaturaPix || '');
@@ -101,6 +119,9 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
   const linha3 = escapeHtml(dadosBoleto.linha3 || '');
   const instrucao1 = escapeHtml(dadosBoleto.Instrucao1 || '');
   const instrucao2 = escapeHtml(dadosBoleto.Instrucao2 || '');
+  const jurosStr = formatarJuros(dadosPix?.juros);
+  const multaStr = formatarMulta(dadosPix?.multa);
+  const idContrato = extras.idContrato && extras.idContrato !== '0' ? escapeHtml(String(extras.idContrato)) : '';
 
   const barcodeBase64 = gerarCodigoBarras(dadosBoleto.codigo_barras);
   const temPix = dadosPix && dadosPix.qrCodeBase64;
@@ -181,7 +202,17 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
         <div class="item" style="grid-column: span 2;">
           <label>Endere&ccedil;o</label>
           <span>${endereco}</span>
-        </div>` : ''}
+        </div>` : ''}${jurosStr || multaStr || idContrato ? `
+        ${jurosStr ? `<div class="item">
+          <label>Juros</label>
+          <span>${jurosStr}</span>
+        </div>` : ''}${multaStr ? `<div class="item">
+          <label>Multa</label>
+          <span>${multaStr}</span>
+        </div>` : ''}${idContrato ? `<div class="item">
+          <label>Contrato</label>
+          <span>${idContrato}</span>
+        </div>` : ''}` : ''}
       </div>
 
       <div class="instrucoes">
@@ -213,7 +244,7 @@ function gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco) {
 // ============================================================
 // Layout 2: PIX Puro (somente PIX) — 297mm x 80mm
 // ============================================================
-function gerarHtmlPixPuro(dadosPix, dadosBoleto, endereco) {
+function gerarHtmlPixPuro(dadosPix, dadosBoleto, endereco, extras = {}) {
   // Extrai numero da fatura do solicitacaoPagador (ex: "Fatura 1045330" -> "1045330")
   const numFaturaPix = dadosPix?.solicitacaoPagador
     ? dadosPix.solicitacaoPagador.replace(/\D/g, '')
@@ -231,7 +262,9 @@ function gerarHtmlPixPuro(dadosPix, dadosBoleto, endereco) {
   }
 
   // Campos com fallback para dados do Pix quando o boleto vem vazio
-  const nome = escapeHtml(dadosBoleto?.sacado || dadosPix?.devedor?.nome || '');
+  const idCliente = extras.idCliente || '';
+  const nomeRaw = escapeHtml(dadosBoleto?.sacado || dadosPix?.devedor?.nome || '');
+  const nome = idCliente ? `${escapeHtml(String(idCliente))} - ${nomeRaw}` : nomeRaw;
   const cpf = escapeHtml(dadosBoleto?.CPF || formatarCpf(dadosPix?.devedor?.cpf) || '');
   const numDocumento = escapeHtml(dadosBoleto?.numero_documento || numFaturaPix || '');
   const vencimento = escapeHtml(dadosBoleto?.data_vencimento || vencimentoPix || '');
@@ -242,6 +275,9 @@ function gerarHtmlPixPuro(dadosPix, dadosBoleto, endereco) {
   const linha3 = escapeHtml(dadosBoleto?.linha3 || '');
   const instrucao1 = escapeHtml(dadosBoleto?.Instrucao1 || '');
   const instrucao2 = escapeHtml(dadosBoleto?.Instrucao2 || '');
+  const jurosStr = formatarJuros(dadosPix?.juros);
+  const multaStr = formatarMulta(dadosPix?.multa);
+  const idContrato = extras.idContrato && extras.idContrato !== '0' ? escapeHtml(String(extras.idContrato)) : '';
 
   const qrCodeBase64 = dadosPix?.qrCodeBase64 || '';
 
@@ -303,7 +339,17 @@ function gerarHtmlPixPuro(dadosPix, dadosBoleto, endereco) {
         <div class="item" style="grid-column: span 2;">
           <label>Endere&ccedil;o</label>
           <span>${endereco}</span>
-        </div>` : ''}
+        </div>` : ''}${jurosStr || multaStr || idContrato ? `
+        ${jurosStr ? `<div class="item">
+          <label>Juros</label>
+          <span>${jurosStr}</span>
+        </div>` : ''}${multaStr ? `<div class="item">
+          <label>Multa</label>
+          <span>${multaStr}</span>
+        </div>` : ''}${idContrato ? `<div class="item">
+          <label>Contrato</label>
+          <span>${idContrato}</span>
+        </div>` : ''}` : ''}
       </div>
 
       <div class="instrucoes">

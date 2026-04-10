@@ -393,7 +393,9 @@ async function obterPix(idBoleto) {
         nome: data.pix.dadosPix?.devedor?.nome || '',
         cpf: data.pix.dadosPix?.devedor?.cpf || ''
       },
-      solicitacaoPagador: data.pix.dadosPix?.solicitacaoPagador || ''
+      solicitacaoPagador: data.pix.dadosPix?.solicitacaoPagador || '',
+      juros: data.pix.dadosPix?.valor?.juros || null,
+      multa: data.pix.dadosPix?.valor?.multa || null
     };
   } catch (error) {
     logger.warn(`Erro ao obter PIX do boleto ${idBoleto}: ${error.message}`);
@@ -460,7 +462,9 @@ async function buscarEnderecoParaImpressao(idBoleto) {
       complemento: enderecoObj.complemento,
       bairro: enderecoObj.bairro,
       cidade: nomeCidade || enderecoObj.cidade,
-      cep: enderecoObj.cep
+      cep: enderecoObj.cep,
+      idCliente: boleto.id_cliente,
+      idContrato: boleto.id_contrato
     };
   } catch (error) {
     logger.warn(`Erro ao buscar endereco para impressao do boleto ${idBoleto}: ${error.message}`);

@@ -138,9 +138,12 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
       buscarEnderecoParaImpressao(id)
     ]);
 
-    const enderecoStr = enderecoResult.status === 'fulfilled' && enderecoResult.value
-      ? formatarEndereco(enderecoResult.value)
-      : '';
+    const enderecoData = enderecoResult.status === 'fulfilled' ? enderecoResult.value : null;
+    const enderecoStr = enderecoData ? formatarEndereco(enderecoData) : '';
+    const extras = {
+      idCliente: enderecoData?.idCliente || '',
+      idContrato: enderecoData?.idContrato || '0',
+    };
 
     let html;
     if (tipo === 'pix') {
@@ -148,7 +151,7 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
         return res.status(500).json({ erro: 'PIX não disponível para este boleto.' });
       }
       const dadosBoleto = dadosResult.status === 'fulfilled' ? dadosResult.value : null;
-      html = gerarHtmlPixPuro(pixResult.value, dadosBoleto, enderecoStr);
+      html = gerarHtmlPixPuro(pixResult.value, dadosBoleto, enderecoStr, extras);
     } else {
       if (dadosResult.status === 'rejected') {
         logger.error(`Erro ao obter dados do boleto ${id}: ${dadosResult.reason?.message}`);
@@ -156,7 +159,7 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
       }
       const dados = dadosResult.value;
       const pix = pixResult.status === 'fulfilled' ? pixResult.value : null;
-      html = gerarHtmlBoletoGateway(dados, pix, enderecoStr);
+      html = gerarHtmlBoletoGateway(dados, pix, enderecoStr, extras);
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -188,16 +191,19 @@ router.get('/boleto/:id/termica-pdf', apiLimiter, async (req, res) => {
       buscarEnderecoParaImpressao(id)
     ]);
 
-    const enderecoStr = enderecoResult.status === 'fulfilled' && enderecoResult.value
-      ? formatarEndereco(enderecoResult.value)
-      : '';
+    const enderecoData = enderecoResult.status === 'fulfilled' ? enderecoResult.value : null;
+    const enderecoStr = enderecoData ? formatarEndereco(enderecoData) : '';
+    const extras = {
+      idCliente: enderecoData?.idCliente || '',
+      idContrato: enderecoData?.idContrato || '0',
+    };
 
     if (tipo === 'pix') {
       if (pixResult.status === 'rejected' || !pixResult.value) {
         return res.status(500).json({ erro: 'PIX não disponível para este boleto.' });
       }
       const dados = dadosResult.status === 'fulfilled' ? dadosResult.value : null;
-      const pdfBuffer = await gerarPdfBoleto(dados, pixResult.value, 'pix', enderecoStr);
+      const pdfBuffer = await gerarPdfBoleto(dados, pixResult.value, 'pix', enderecoStr, extras);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename=pix-${id}.pdf`);
       return res.send(Buffer.from(pdfBuffer));
@@ -211,7 +217,7 @@ router.get('/boleto/:id/termica-pdf', apiLimiter, async (req, res) => {
 
     const dados = dadosResult.value;
     const pix = pixResult.status === 'fulfilled' ? pixResult.value : null;
-    const pdfBuffer = await gerarPdfBoleto(dados, pix, 'gateway', enderecoStr);
+    const pdfBuffer = await gerarPdfBoleto(dados, pix, 'gateway', enderecoStr, extras);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename=boleto-${id}.pdf`);
