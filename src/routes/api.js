@@ -147,10 +147,8 @@ router.get('/boleto/:id/termica', apiLimiter, async (req, res) => {
       if (pixResult.status === 'rejected' || !pixResult.value) {
         return res.status(500).json({ erro: 'PIX não disponível para este boleto.' });
       }
-      const dadosCliente = dadosResult.status === 'fulfilled'
-        ? { nome: dadosResult.value.sacado, cpf: dadosResult.value.CPF }
-        : { nome: '', cpf: '' };
-      html = gerarHtmlPixPuro(pixResult.value, dadosCliente, enderecoStr);
+      const dadosBoleto = dadosResult.status === 'fulfilled' ? dadosResult.value : null;
+      html = gerarHtmlPixPuro(pixResult.value, dadosBoleto, enderecoStr);
     } else {
       if (dadosResult.status === 'rejected') {
         logger.error(`Erro ao obter dados do boleto ${id}: ${dadosResult.reason?.message}`);

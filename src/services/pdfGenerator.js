@@ -32,10 +32,7 @@ async function gerarPdfBoleto(dadosBoleto, dadosPix, tipo = 'gateway', endereco 
     // Seleciona template baseado no tipo
     let html;
     if (tipo === 'pix') {
-      const dadosCliente = dadosBoleto
-        ? { nome: dadosBoleto.sacado, cpf: dadosBoleto.CPF }
-        : { nome: '', cpf: '' };
-      html = gerarHtmlPixPuro(dadosPix, dadosCliente, endereco);
+      html = gerarHtmlPixPuro(dadosPix, dadosBoleto, endereco);
     } else {
       html = gerarHtmlBoletoGateway(dadosBoleto, dadosPix, endereco);
     }
