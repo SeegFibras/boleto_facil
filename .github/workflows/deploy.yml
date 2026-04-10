@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latesth
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -31,9 +31,11 @@ jobs:
             PREV_COMMIT=$(su - $APP_USER -c "cd $PROJECT_DIR && git rev-parse HEAD")
             echo "Commit atual: $PREV_COMMIT"
 
-            # Git pull
-            su - $APP_USER -c "cd $PROJECT_DIR && git pull origin main"
-            echo "Git pull concluído"
+            # Atualiza código garantindo working tree limpa
+            su - $APP_USER -c "cd $PROJECT_DIR && git fetch origin main"
+            su - $APP_USER -c "cd $PROJECT_DIR && git reset --hard origin/main"
+            su - $APP_USER -c "cd $PROJECT_DIR && git clean -fd"
+            echo "Código atualizado para origin/main"
 
             # Verifica se package.json mudou e instala dependências
             PKG_CHANGED=$(su - $APP_USER -c "cd $PROJECT_DIR && git diff HEAD~1 --name-only 2>/dev/null | grep -c package.json" || echo "0")
